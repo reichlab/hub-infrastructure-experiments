@@ -1,0 +1,164 @@
+{
+  "model_tasks": {
+    "default": {
+      "required": null,
+      "optional": {
+        "weekly rate": {
+          "task_ids": {
+            "origin_epiweek": {
+              "required": null,
+              "optional": {
+                "$ref": "#/$defs/task_ids/origin_epiweek/all_epiweeks"
+              },
+              "values_identical": true
+            },
+            "location": {
+              "required": {
+                "$ref": "#/$defs/task_ids/location/us_states"
+              },
+              "optional": ["US"]
+            },
+            "horizon": {
+              "required": null,
+              "optional": [1, 2]
+            }
+          },
+          "output_types": {
+            "mean": {
+              "type_id": {
+                "required": null,
+                "optional": ["NA"]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "quantile": {
+              "type_id": {
+                "required": [0.25, 0.5, 0.75],
+                "optional": [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "bin_prob": {
+              "type_id": {
+                "required": {
+                  "$ref": "#/$defs/output_type_ids/short_term_inc_bins"
+                },
+                "optional": null
+              },
+              "value": {
+                "type": "numeric",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "peak week": {
+          "task_ids": {
+            "origin_epiweek": {
+              "required": null,
+              "optional": {
+                "$ref": "#/$defs/task_ids/origin_epiweek/all_epiweeks"
+              },
+              "values_identical": true
+            },
+            "location": {
+              "required": {
+                "$ref": "#/$defs/task_ids/location/us_states"
+              },
+              "optional": ["US"]
+            },
+            "horizon": {
+              "required": null,
+              "optional": ["NA"]
+            }
+          },
+          "output_types": {
+            "bin_prob": {
+              "type_id": {
+                "required": {
+                  "$ref": "#/$defs/output_type_ids/peak_epiweek_bins"
+                },
+                "optional": null
+              },
+              "value": {
+                "type": "numeric",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "task_ids": {
+      "origin_epiweek": {
+        "all_epiweeks": ["EW202240", "EW202241", "EW202242", "EW202243", "EW202244", "EW202245", "EW202246", "EW202247", "EW202248", "EW202249", "EW202250", "EW202251", "EW202252", "EW202301", "EW202302", "EW202303", "EW202304", "EW202305", "EW202306", "EW202307", "EW202308", "EW202309", "EW202310", "EW202311", "EW202312", "EW202313", "EW202314", "EW202315", "EW202316", "EW202317", "EW202318", "EW202319", "EW202310", "EW202320"]
+      },
+      "location": {
+        "us_states": ["01", "02", "04", "05", "06", "08", "09", "10", "11", "12", "13", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "44", "45", "46", "47", "48", "49", "50", "51", "53", "54", "55", "56"]
+      }
+    },
+    "output_type_ids": {
+      "short_term_inc_bins": [
+        {
+          "bin_id": "[0.0, 10.0]",
+          "bin_start": 0.0,
+          "bin_start_incl": true,
+          "bin_end": 10.0,
+          "bin_end_incl": true
+        },
+        {
+          "bin_id": "(10.0, 20.0]",
+          "bin_start": 0.0,
+          "bin_start_incl": false,
+          "bin_end": 0.0,
+          "bin_end_incl": true
+        },
+        {
+          "bin_id": "(20.0, 100000.0]",
+          "bin_start": 0.0,
+          "bin_start_incl": false,
+          "bin_end": 100000.0,
+          "bin_end_incl": true
+        }
+      ],
+      "peak_epiweek_bins": [
+        {
+          "bin_id": "EW202240",
+          "bin_start": "EW202240",
+          "bin_start_incl": true,
+          "bin_end": "EW202240",
+          "bin_end_incl": true
+        },
+        {
+          "bin_id": "EW202241",
+          "bin_start": "EW202241",
+          "bin_start_incl": true,
+          "bin_end": "EW202241",
+          "bin_end_incl": true
+        },
+        {
+          "bin_id": "EW202242",
+          "bin_start": "EW202242",
+          "bin_start_incl": true,
+          "bin_end": "EW202242",
+          "bin_end_incl": true
+        },
+        {
+          "bin_id": "EW202243",
+          "bin_start": "EW202243",
+          "bin_start_incl": true,
+          "bin_end": "EW202243",
+          "bin_end_incl": true
+        }
+      ]
+    }
+  }
+}
