@@ -3,6 +3,7 @@
 This folder contains the following files:
  * this readme file, which describes the set up for the example
  * a proposed Hub metadata file, which encodes the model output tasks and task ids
+ * sample python code that illustrates resolving references in the json metadata file
  * TODO: some sample R code that could be used to work with the Hub metadata file
 
 # Example set up
