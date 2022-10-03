@@ -43,13 +43,20 @@ A representation of model outputs in line with the recommendations that have bee
 
 | origin_date | horizon | location | type | type_id | value |
 |---------------|--------|----------|------|----------|-------|
-2022-06-20 | 1 | 01 | mean    | NA   | 21
-2022-06-20 | 1 | 01 | quantile | 0.01 | 8
+2022-06-18 | 1 | 01 | mean    | NA   | 21
+2022-06-18 | 1 | 01 | quantile | 0.01 | 8
 ... | ... | ... | ... | ... | ...
 
 We have made five changes from the original format of the model output submissions:
- * Rather than using `forecast_date`, we have switch to the column name `origin_date`, in line with naming standards agreed upon by the Hubs.
+ * Rather than using `forecast_date`, we have switched to the column name `origin_date`. This is in line with the preferred standard agreed upon by the Hubs in which dates are canonicalized in terms of the `origin_date`, which represents the time relative to which nowcast, forecast, or projection targets are defined. In the case of the influenza forecasts, forecasted quantities represent values that occur over time span relative to an `origin_date` corresponding to a Saturday. For instance, if the `origin_date` is Saturday, 2022-06-18, values for a `horizon` of 1 week summarize influenza activity over the week after that `origin_date`, i.e., aggregated influenza activity from 2022-06-19 through 2022-06-25.
  * In the original format, all entries of the `target` column contained the string `" wk ahead inc flu hosp"`. In our revised proposal, this column has been replaced by the `horizon` column which contains values in the array `[1, 2, 3, 4]`. This eliminates the storage of redundant information, and reduces the need for regular expression parsing to extract the forecast horizon from the target.
  * In the original format, the `target_end_date` column was redundant with the `forecast_date` and `target` columns, as discussed above. We have eliminated that column here.
  * In the original format, the type of the point forecast was left unspecified. Here, we are explicit that the point forecast is a predictive mean. This ensures that the point forecasts from different models are comparable, and that the point forecast provides different information than the predictive quantile at probability level 0.5.
  * The `quantile` column has been renamed to the more generally-applicable `type_id`.
+
+In addition to the above changes in the model output representation, we note that the metadata file encodes several other pieces of information that are relevent for validations:
+ * round ids correspond to the `origin_date`; implicitly, in a given round, only the corresponding value is allowed in the `origin_date` column.
+ * submission due dates per round are specified relative to the `origin_date`; submissions are allowed up to four days before the `origin_date` and up to two days after the `origin_date`.
+
+People have proposed these other things that are not currently represented:
+ * the time unit corresponding to the `horizon` is 1 week. This could be used in a viz, for example.
