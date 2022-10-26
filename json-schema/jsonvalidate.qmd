@@ -1,0 +1,33 @@
+---
+title: "Using JSON schema to validate Hub Metadata"
+author: "Anna Krystalli"
+date: last-modified
+format: html
+editor: visual
+---
+
+```{r json-load-function}
+load_json_example <- function(file, dir = "modified-hubmeta-examples") {
+    jsonlite::read_json(
+    here::here("json-schema", dir, file),
+    simplifyVector = TRUE, 
+    simplifyDataFrame = FALSE)
+}
+```
+
+### File names & paths
+
+```{r}
+simple_mod_file <- "simple-hubmeta-mod.json"
+complex_mod_file <- "complex-hubmeta-mod.json"
+
+simple_mod_path <- here::here("json-schema", "modified-hubmeta-examples", simple_mod_file)
+complex_mod_path <- here::here("json-schema", "modified-hubmeta-examples", complex_mod_file)
+```
+
+## Simple example
+
+```{r}
+load_json_example(simple_mod_file)
+```
+
