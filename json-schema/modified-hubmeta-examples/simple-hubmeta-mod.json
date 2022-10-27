@@ -1,5 +1,5 @@
 {
-  "round_id_from_variable": {
+    "round_id": "round_id_from_variable",
     "model_tasks": [
       {
         "task_ids": {
@@ -45,5 +45,4 @@
         "start": -4,
         "end": 2
     }
-  }
 }
