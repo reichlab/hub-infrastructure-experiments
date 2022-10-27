@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Anna Krystalli">
-<meta name="dcterms.date" content="2022-10-26">
+<meta name="dcterms.date" content="2022-10-27">
 
 <title>Using JSON schema to validate Hub Metadata</title>
 <style>
@@ -93,6 +93,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <script src="jsonvalidate_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="jsonvalidate_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="jsonvalidate_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script type="module" src="jsonvalidate_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="jsonvalidate_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
 
 
 </head>
@@ -122,7 +124,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 26, 2022</p>
+      <p class="date">October 27, 2022</p>
     </div>
   </div>
     
@@ -132,14 +134,23 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </header>
 
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>load_json_example <span class="ot">&lt;-</span> <span class="cf">function</span>(file,</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>                              <span class="at">dir =</span> <span class="st">"modified-hubmeta-examples"</span>) {</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    jsonlite<span class="sc">::</span><span class="fu">read_json</span>(</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"json-schema"</span>, dir, file),</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">simplifyVector =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">simplifyDataFrame =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>load_json_example <span class="ot">&lt;-</span> <span class="cf">function</span>(file, <span class="at">dir =</span> <span class="st">"modified-hubmeta-examples"</span>) {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    jsonlite<span class="sc">::</span><span class="fu">read_json</span>(</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"json-schema"</span>, dir, file),</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">simplifyVector =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">simplifyDataFrame =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>apply_validator <span class="ot">&lt;-</span> <span class="cf">function</span>(path) {</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    validated <span class="ot">&lt;-</span> <span class="fu">validator</span>(path, <span class="at">verbose =</span> <span class="cn">TRUE</span>) </span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (validated) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        validated</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        validated <span class="sc">|&gt;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>            <span class="fu">attr</span>(<span class="st">"errors"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>            <span class="fu">View</span>()</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="file-names-paths" class="level3">
 <h3 class="anchored" data-anchor-id="file-names-paths">File names &amp; paths</h3>
@@ -150,104 +161,157 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>simple_mod_path <span class="ot">&lt;-</span> here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"json-schema"</span>, <span class="st">"modified-hubmeta-examples"</span>, simple_mod_file)</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>complex_mod_path <span class="ot">&lt;-</span> here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"json-schema"</span>, <span class="st">"modified-hubmeta-examples"</span>, complex_mod_file)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+</section>
+<section id="modified-examples" class="level2">
+<h2 class="anchored" data-anchor-id="modified-examples">Modified examples</h2>
+<p>I’ve modified original examples, primarily to enable generalised validation of multiple round specification. This will affect current <code>hubUtils</code> functionality but now is a good time to change it if necessary.</p>
+<section id="simple-modified-example" class="level3">
+<h3 class="anchored" data-anchor-id="simple-modified-example">Simple modified example</h3>
+<p><code>hub-infrastructure-experiments/json-schema/modified-hubmeta-examples/simple-hubmeta-mod.json</code></p>
+<p>You can navigate the file by clicking below</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load_json_example</span>(simple_mod_file)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3" data-startfrom="50" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 49;"><span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>simple <span class="op">=</span> <span class="fu">FileAttachment</span>(<span class="st">"modified-hubmeta-examples/simple-hubmeta-mod.json"</span>)<span class="op">.</span><span class="fu">json</span>()</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>simple</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-1-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-1-2" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="complex-modified-example" class="level3">
+<h3 class="anchored" data-anchor-id="complex-modified-example">Complex modified example</h3>
+<p><code>hub-infrastructure-experiments/json-schema/modified-hubmeta-examples/complex-hubmeta-mod.json</code></p>
+<p>You can navigate the file by clicking below</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4" data-startfrom="61" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 60;"><span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>complex <span class="op">=</span> <span class="fu">FileAttachment</span>(<span class="st">"modified-hubmeta-examples/complex-hubmeta-mod.json"</span>)<span class="op">.</span><span class="fu">json</span>()</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>complex</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-2-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-2-2" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="validate" class="level2">
+<h2 class="anchored" data-anchor-id="validate">Validate</h2>
+<p>Load the validator from <code>hub-infrastructure-experiments/json-schema/hubmeta-schema.json</code></p>
+<p>You can navigate the schema below</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" data-startfrom="72" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 71;"><span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>schema <span class="op">=</span> <span class="fu">FileAttachment</span>(<span class="st">"hubmeta-schema.json"</span>)<span class="op">.</span><span class="fu">json</span>()</span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>schema</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-3-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-3-2" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>validator <span class="ot">&lt;-</span> jsonvalidate<span class="sc">::</span><span class="fu">json_validator</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">schema =</span> here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"json-schema"</span>, <span class="st">"hubmeta-schema.json"</span>),</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">engine =</span> <span class="st">"ajv"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">validator</span>(simple_mod_path, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>$round_id_from_variable
-$round_id_from_variable$model_tasks
-$round_id_from_variable$model_tasks[[1]]
-$round_id_from_variable$model_tasks[[1]]$task_ids
-$round_id_from_variable$model_tasks[[1]]$task_ids$origin_date
-$round_id_from_variable$model_tasks[[1]]$task_ids$origin_date$required
-NULL
-
-$round_id_from_variable$model_tasks[[1]]$task_ids$origin_date$optional
- [1] "2022-01-08" "2022-01-15" "2022-01-22" "2022-01-29" "2022-02-05"
- [6] "2022-02-12" "2022-02-19" "2022-02-26" "2022-03-05" "2022-03-12"
-[11] "2022-03-19" "2022-03-26" "2022-04-02" "2022-04-09" "2022-04-16"
-[16] "2022-04-23" "2022-04-30" "2022-05-07" "2022-05-14" "2022-05-21"
-[21] "2022-05-28" "2022-06-04" "2022-06-11" "2022-06-18"
-
-
-$round_id_from_variable$model_tasks[[1]]$task_ids$location
-$round_id_from_variable$model_tasks[[1]]$task_ids$location$required
-NULL
-
-$round_id_from_variable$model_tasks[[1]]$task_ids$location$optional
- [1] "01" "02" "04" "05" "06" "08" "09" "10" "11" "12" "13" "15" "16" "17" "18"
-[16] "19" "20" "21" "22" "23" "24" "25" "26" "27" "28" "29" "30" "31" "32" "33"
-[31] "34" "35" "36" "37" "38" "39" "40" "41" "42" "44" "45" "46" "47" "48" "49"
-[46] "50" "51" "53" "54" "55" "56" "72" "78" "US"
-
-
-$round_id_from_variable$model_tasks[[1]]$task_ids$horizon
-$round_id_from_variable$model_tasks[[1]]$task_ids$horizon$required
-NULL
-
-$round_id_from_variable$model_tasks[[1]]$task_ids$horizon$optional
-[1] 1 2 3 4
-
-
-
-$round_id_from_variable$model_tasks[[1]]$output_types
-$round_id_from_variable$model_tasks[[1]]$output_types$mean
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$type_id
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$type_id$required
-NULL
-
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$type_id$optional
-[1] NA
-
-
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$value
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$value$type
-[1] "integer"
-
-$round_id_from_variable$model_tasks[[1]]$output_types$mean$value$minimum
-[1] 0
-
-
-
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$type_id
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$type_id$required
-NULL
-
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$type_id$optional
- [1] 0.010 0.025 0.050 0.100 0.150 0.200 0.250 0.300 0.350 0.400 0.450 0.500
-[13] 0.550 0.600 0.650 0.700 0.750 0.800 0.850 0.900 0.950 0.975 0.990
-
-
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$value
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$value$type
-[1] "integer"
-
-$round_id_from_variable$model_tasks[[1]]$output_types$quantile$value$minimum
-[1] 0
-
-
-
-
-
-
-$round_id_from_variable$round_id_variable
-[1] "origin_date"
-
-$round_id_from_variable$submissions_due
-$round_id_from_variable$submissions_due$relative_to
-[1] "origin_date"
-
-$round_id_from_variable$submissions_due$start
-[1] -4
-
-$round_id_from_variable$submissions_due$end
-[1] 2</code></pre>
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">validator</span>(complex_mod_path, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] FALSE
+attr(,"errors")
+                                        instancePath
+1 /rounds/0/model_tasks/0/task_ids/location/required
+2 /rounds/0/model_tasks/1/task_ids/location/required
+3 /rounds/1/model_tasks/0/task_ids/location/required
+                                                                                                               schemaPath
+1 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+2 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+3 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+  keyword        type            message      schema parentSchema.type
+1    type array, null must be array,null array, null       array, null
+2    type array, null must be array,null array, null       array, null
+3    type array, null must be array,null array, null       array, null
+  parentSchema.type                                $ref
+1            string #/$defs/task_ids/location/us_states
+2            string #/$defs/task_ids/location/us_states
+3            string #/$defs/task_ids/location/us_states
+                                            dataPath
+1 /rounds/0/model_tasks/0/task_ids/location/required
+2 /rounds/0/model_tasks/1/task_ids/location/required
+3 /rounds/1/model_tasks/0/task_ids/location/required</code></pre>
 </div>
 </div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">validator</span>(complex_mod_path, <span class="at">verbose =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">attr</span>(<span class="st">"errors"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                        instancePath
+1 /rounds/0/model_tasks/0/task_ids/location/required
+2 /rounds/0/model_tasks/1/task_ids/location/required
+3 /rounds/1/model_tasks/0/task_ids/location/required
+                                                                                                               schemaPath
+1 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+2 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+3 #/properties/rounds/items/properties/model_tasks/items/properties/task_ids/properties/location/properties/required/type
+  keyword        type            message      schema parentSchema.type
+1    type array, null must be array,null array, null       array, null
+2    type array, null must be array,null array, null       array, null
+3    type array, null must be array,null array, null       array, null
+  parentSchema.type                                $ref
+1            string #/$defs/task_ids/location/us_states
+2            string #/$defs/task_ids/location/us_states
+3            string #/$defs/task_ids/location/us_states
+                                            dataPath
+1 /rounds/0/model_tasks/0/task_ids/location/required
+2 /rounds/0/model_tasks/1/task_ids/location/required
+3 /rounds/1/model_tasks/0/task_ids/location/required</code></pre>
+</div>
+</div>
+<p>The 3 errors still present when validating the complex hubmeta arises from the fact that I’ve not figure out values which either should be a typed array or could contain a <code>"$ref" = "#defs"</code> value key pair. Given this functionality should be available to any property, I need to figure out how to encode that in the schema (rather than to each property individually).</p>
 </section>
 
 </main>
 <!-- /main column -->
+<script type="ojs-module-contents">
+{"contents":[{"methodName":"interpret","cellName":"ojs-cell-1","inline":false,"source":"simple = FileAttachment(\"modified-hubmeta-examples/simple-hubmeta-mod.json\").json()\nsimple\n"},{"methodName":"interpret","cellName":"ojs-cell-2","inline":false,"source":"complex = FileAttachment(\"modified-hubmeta-examples/complex-hubmeta-mod.json\").json()\ncomplex\n"},{"methodName":"interpret","cellName":"ojs-cell-3","inline":false,"source":"schema = FileAttachment(\"hubmeta-schema.json\").json()\nschema\n"}]}
+</script>
+<script type="module">
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../..";
+window._ojs.paths.docToRoot = "";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
