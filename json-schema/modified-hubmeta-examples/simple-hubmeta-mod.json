@@ -20,7 +20,7 @@
         "mean": {
           "type_id": {
             "required": null,
-            "optional": "NA"
+            "optional": ["NA"]
           },
           "value": {
             "type": "integer",
