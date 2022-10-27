@@ -200,10 +200,18 @@
                           "type": "object",
                           "properties": {
                             "required": {
-                              "enum": ["NA", null]
+                              "type": ["array", "null"],
+                              "items": {
+                                "enum": ["NA", null],
+                                "maxItems": 1
+                              }
                             },
                             "optional": {
-                              "enum": ["NA", null]
+                              "type": ["array", "null"],
+                              "items": {
+                                "enum": ["NA", null],
+                                "maxItems": 1
+                              }
                             }
                           },
                           "required": [
