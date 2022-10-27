@@ -344,9 +344,8 @@
                           "type": "object",
                           "properties": {
                             "type": {
-                              "type": "string",
                               "enum": [
-                                ["numeric", "integer", "double"]
+                                "numeric", "integer", "double"
                               ]
                             },
                             "minimum": {
