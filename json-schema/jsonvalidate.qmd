@@ -1,0 +1,94 @@
+---
+title: "Using JSON schema to validate Hub Metadata"
+author: "Anna Krystalli"
+date: last-modified
+format: html
+editor: visual
+---
+
+```{r json-load-function}
+load_json_example <- function(file, dir = "modified-hubmeta-examples") {
+    jsonlite::read_json(
+    here::here("json-schema", dir, file),
+    simplifyVector = TRUE, 
+    simplifyDataFrame = FALSE)
+}
+
+apply_validator <- function(path) {
+    validated <- validator(path, verbose = TRUE) 
+    if (validated) {
+        validated
+    } else {
+        validated |>
+            attr("errors") |> 
+            View()
+    }
+}
+```
+
+### File names & paths
+
+```{r}
+simple_mod_file <- "simple-hubmeta-mod.json"
+complex_mod_file <- "complex-hubmeta-mod.json"
+
+simple_mod_path <- here::here("json-schema", "modified-hubmeta-examples", simple_mod_file)
+complex_mod_path <- here::here("json-schema", "modified-hubmeta-examples", complex_mod_file)
+```
+
+## Modified examples
+
+I've modified original examples, primarily to enable generalised validation of multiple round specification. This will affect current `hubUtils` functionality but now is a good time to change it if necessary.
+
+### Simple modified example
+
+`hub-infrastructure-experiments/json-schema/modified-hubmeta-examples/simple-hubmeta-mod.json`
+
+You can navigate the file by clicking below
+
+```{ojs}
+simple = FileAttachment("modified-hubmeta-examples/simple-hubmeta-mod.json").json()
+simple
+```
+
+### Complex modified example
+
+`hub-infrastructure-experiments/json-schema/modified-hubmeta-examples/complex-hubmeta-mod.json`
+
+You can navigate the file by clicking below
+
+```{ojs}
+complex = FileAttachment("modified-hubmeta-examples/complex-hubmeta-mod.json").json()
+complex
+```
+
+## Validate
+
+Load the validator from `hub-infrastructure-experiments/json-schema/hubmeta-schema.json`
+
+You can navigate the schema below
+
+```{ojs}
+schema = FileAttachment("hubmeta-schema.json").json()
+schema
+```
+
+```{r}
+validator <- jsonvalidate::json_validator(
+    schema = here::here("json-schema", "hubmeta-schema.json"),
+    engine = "ajv"
+)
+```
+
+```{r}
+validator(simple_mod_path, verbose = TRUE)
+validator(complex_mod_path, verbose = TRUE)
+```
+
+```{r}
+validator(complex_mod_path, verbose = TRUE) |>
+    attr("errors")
+
+```
+
+The 3 errors still present when validating the complex hubmeta arises from the fact that I've not figure out values which either should be a typed array or could contain a `"$ref" = "#defs"` value key pair. Given this functionality should be available to any property, I need to figure out how to encode that in the schema (rather than to each property individually).
