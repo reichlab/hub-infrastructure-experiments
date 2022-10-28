@@ -445,40 +445,7 @@
         }
       }
     },
-    "$defs": {
-      "type": "object",
-      "properties": {
-        "task_ids": {
-          "type": "object",
-          "properties": {
-            "location": {
-              "type": "object",
-              "properties": {
-                "us_states": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "additionalItems": true
-                }
-              },
-              "additionalProperties": true,
-              "required": [
-                "us_states"
-              ]
-            }
-          },
-          "additionalProperties": true,
-          "required": [
-            "location"
-          ]
-        }
-      },
-      "additionalProperties": true,
-      "required": [
-        "task_ids"
-      ]
-    }
+    "$defs": {}
   },
   "required": [
     "rounds"
