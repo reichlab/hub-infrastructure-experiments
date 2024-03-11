@@ -787,7 +787,7 @@ outputs_and_targets &lt;- model_outputs |&gt;
     target_values |&gt; rename(observation = value),
     by = c(task_id_vars, &quot;output_type&quot;, &quot;output_type_id&quot;))
 toc()
-## 0.276 sec elapsed
+## 0.288 sec elapsed
 
 head(outputs_and_targets)
 ## # A tibble: 6 × 10
@@ -988,7 +988,7 @@ outputs_and_targets_2b &lt;- bind_rows(
       by = c(task_id_vars, &quot;output_type&quot;, &quot;output_type_id&quot;)),
 )
 toc()
-## 0.431 sec elapsed
+## 0.661 sec elapsed
 
 identical(
   outputs_and_targets |&gt;
@@ -1184,7 +1184,7 @@ outputs_and_targets_2c_v2 &lt;- purrr::map(
   purrr::list_rbind()
 
 toc()
-## 3.457 sec elapsed</code></pre>
+## 3.446 sec elapsed</code></pre>
 <pre class="r"><code>identical(
   outputs_and_targets |&gt;
     arrange(location, reference_date, horizon, target_end_date, target,
@@ -1312,7 +1312,7 @@ outputs_and_targets_2d &lt;- bind_rows(
     select(-output_type_id_num)
 )
 toc()
-## 0.433 sec elapsed
+## 0.431 sec elapsed
 
 identical(
   outputs_and_targets |&gt;
@@ -1322,7 +1322,7 @@ identical(
     arrange(location, reference_date, horizon, target_end_date, target,
             output_type, output_type_id, model_id))
 ## [1] TRUE</code></pre>
-<p>Relative to option 2b, this option yields some additional savings in storage space and also has a comparable or perhaps slightly faster run time. The downside is the imprecision of recording only the <code>value</code> for the observed category or cdf level in the target data, which may be imprecise.</p>
+<p>Relative to option 2b, this option yields some additional savings in storage space and also has a comparable or perhaps slightly faster run time. The downside is the imprecision of recording only the <code>value</code> for the observed category or cdf level in the target data.</p>
 </div>
 </div>
 </div>

@@ -752,4 +752,4 @@ identical(
             output_type, output_type_id, model_id))
 ```
 
-Relative to option 2b, this option yields some additional savings in storage space and also has a comparable or perhaps slightly faster run time. The downside is the imprecision of recording only the `value` for the observed category or cdf level in the target data, which may be imprecise.
+Relative to option 2b, this option yields some additional savings in storage space and also has a comparable or perhaps slightly faster run time. The downside is the imprecision of recording only the `value` for the observed category or cdf level in the target data.
