@@ -1,0 +1,755 @@
+---
+title: "Target data formats"
+editor_options:
+  markdown:
+    mode: gfm
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 9
+)
+```
+
+
+
+```{r}
+library(hubUtils)
+library(hubData)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggdist)
+
+library(tictoc)
+
+theme_set(theme_bw())
+options(width = 150)
+```
+
+# Preliminary note on hubverse model output data formats
+
+A hubverse model output object has four groups of columns:
+
+1. model identifier -- `model_id`: which model made the predictions?
+2. task id variables -- e.g., `location`, `reference_date`, `horizon`, `age_group`: uniquely identify a forecast task/unit
+3. output metadata -- `output_type`, `output_type_id`: the representation of the output (cdf, pmf, quantile, mean, median, sample) and type-specific identifier or "level" of the output (value of y, quantile level, sample index)
+4. predicted value -- `value`: the model's prediction
+
+Mathematical notation:
+
+ - let $y$ be an infectious disease outcome we're going to predict.
+ - let $F$, $f$, and $F^{-1}$ be the cdf, pdf/pmf, and quantile functions for the (predictive) distribution of $y$
+ - let $\tau \in (0, 1)$ be a quantile level (probability corresponding to a quantile, e.g. $\tau = 0.5$ corresponds to a median)
+
+Note:
+
+- whether values of the disease outcome being predicted show up in the `output_type_id` column or the `value` column depends on the `output_type`!  
+  - For output types mean, median, sample, quantile, the `value` column is on the scale of the disease outcome $y$.
+    - For quantile type, `output_type_id` contains a probability level $\tau$ and the value is $F^{-1}(\tau)$
+  - For output types pmf and cdf, the `output_type_id` column is on the scale of the disease outcome $y$
+    - `output_type_id` is a possible value of the target, $y$
+    - `value` is a probability of that target value or the set of values $\leq y$, $f(y)$ or $F(y)$, for the pmf and cdf output types respectively
+
+# Example data we'll be working with:
+
+We'll work with examples from the `example-complex-forecast-hub`, which was adapted from the 2022/23 FluSight forecasting exercise run by CDC:
+
+```{r}
+hub_path <- "../../example-complex-forecast-hub"
+model_outputs <- hubData::connect_hub(hub_path) |>
+  dplyr::collect()
+head(model_outputs)
+```
+
+We have the following three `target`s:
+
+```{r}
+model_outputs |>
+  dplyr::distinct(target)
+```
+
+The first target is counts of weekly hospital admissions with a confirmed diagnosis of influenza.  For this target, we have mean, median, and quantile forecasts at 23 quantile levels:
+
+```{r}
+model_outputs |>
+  filter(target == "wk inc flu hosp") |>
+  distinct(output_type)
+```
+
+```{r}
+model_outputs |>
+  filter(target == "wk inc flu hosp", output_type == "quantile") |>
+  pull(output_type_id) |>
+  unique()
+```
+
+The second target is a categorical forecast of influenza activity intensity, with severity categories of `"low"`, `"moderate"`, `"high"`, and `"very high"` defined based on thresholds on the rate of hospital admissions per 100,000 population. The category boundaries are defined at values of 2.5, 5, and 7.5 hospitalizations per 100,000 population. A forecast assigns a probability to each of these categories, with probabilities summing to 1.
+
+```{r}
+model_outputs |>
+  filter(target == "wk flu hosp rate category") |>
+  distinct(output_type, output_type_id)
+```
+
+The third target is also based on influenza hospital admission rates per 100,000 population, but here we collect cdf forecasts at 100 equally spaced points from 0.25 to 25.
+
+```{r}
+model_outputs |>
+  filter(target == "wk flu hosp rate") |>
+  distinct(output_type)
+```
+
+```{r}
+model_outputs |>
+  filter(target == "wk flu hosp rate") |>
+  pull(output_type_id) |>
+  unique()
+```
+
+# Uses of target data
+
+We consider two main uses of target data: plotting and scoring predictions. For both of these use cases, there are subcases that we may need to handle differently:
+
+1. Plotting predictions alongside ground truth/target data
+    1. plots for step-ahead forecasts that are directly of the disease signal
+        - e.g. if the disease outcome is hospital admissions, these are predictions of hospital admissions
+        - output type is not too important, as long as any binning or evaluation points used for pmf/cdf types is "fine" so we can get to a reasonable distribution for the outcome.
+    2. other
+2. Scoring predictions
+
+Although we don't discuss this further below, note that the most natural format for providing data to modeling teams is a time series format, which is the first format discussed in the next section.
+
+# Target data formats
+
+The uses of target data above motivate two formats of target data.  We describe the formats here and give examples of their use below.
+
+## Target data format 1: time series
+
+This is what we might think of first when we discuss target data: a time series of observed disease outcome values. This format is useful for plotting alongside observed disease outcomes.
+
+Here's what this looks like in our example, where we have an observed count of hospital admissions for each location and date:
+```{r}
+target_time_series_data <- read_csv(
+  file.path(hub_path, "target-data", "time-series.csv"))
+tail(target_time_series_data)
+```
+
+- Questions:
+    - would it work for us to mandate that there be just one time series file, e.g. called `target-data/time-series.csv`? Would this be necessary or helpful in any way? Would it be limiting or prevent some use cases?
+    - If more flexibility is needed, would it be helpful to add a field to admin metadata for the hub to specify the location of this file?
+
+### Example use 1a: plotting target data alongside step-ahead forecasts
+
+We'll illustrate by plotting forecasts for California from one model and one reference date.  Note that although most of this code below has to do with manipulating the model output data into a plottable form, the part we're focusing on in this document is plotting the target data.
+
+```{r}
+# subset target data and model outputs
+ca_fips <- "06"
+
+ca_target_time_series <- target_time_series_data |>
+  dplyr::filter(location == ca_fips,
+                date >= "2022-10-01",
+                date <= "2023-05-01")
+
+ca_model_outputs <- model_outputs |>
+  dplyr::filter(location == ca_fips,
+                reference_date == "2022-11-19",
+                model_id == "PSI-DICE",
+                target == "wk inc flu hosp",
+                output_type == "quantile",
+                output_type_id %in% c("0.025", "0.25", "0.5", "0.75", "0.975"))
+
+# prepping outputs for plot
+median_df <- ca_model_outputs |>
+  dplyr::filter(output_type_id == "0.5") |>
+  dplyr::transmute(x = target_end_date,
+                   y = value,
+                   .point = "median")
+
+outputs_for_plot <- purrr::map(
+  c(0.5, 0.95),
+  function(width) {
+    q_levels <- as.character(c((1 - width) / 2, 1 - (1 - width) / 2))
+    interval_df <- ca_model_outputs |>
+      dplyr::filter(output_type_id %in% q_levels) |>
+      tidyr::pivot_wider(names_from = output_type_id,
+                         values_from = value) |>
+      dplyr::mutate(x = target_end_date,
+                    .lower = .data[[q_levels[1]]],
+                    .upper = .data[[q_levels[2]]],
+                    .width = width,
+                    .interval = "qi",
+                    .keep = "none")
+
+    left_join(median_df, interval_df, by = "x")
+  }) |>
+  purrr::list_rbind()
+
+ggplot() +
+  # boring stuff to make a plot of forecasts, pay no attention
+  geom_lineribbon(
+    mapping = aes(x = x, y = y, ymin = .lower, ymax = .upper),
+    data = outputs_for_plot
+  ) +
+  # here's where we use the target data!!
+  geom_line(
+    mapping = aes(x = date, y = value),
+    data = ca_target_time_series) +
+  scale_fill_brewer()
+```
+
+## Target data format 2: target values
+
+In this data format, in principle we have a row for each combination of forecast task id variables, output type, and output type id, and the `value` is the observed value of the target for that prediction task. This data format is useful for evaluating predictions and for plotting forecast distributions for one forecast target at a time.
+
+We'll first look at a "complete" version of this data file where there is actually a row for every combination of forecast task id variable, output type, and output type id.  One way to think about this is that it is the submission file that would be submitted by someone who knew the exact observed outcome in advance, and had a forecast distribution corresponding to a point mass at that observation.
+
+The "complete" target values data file contains many duplicated values. We will consider two options for more abbreviated representations of the target value data in following sections.
+
+### Target data format 2a: complete target values
+
+#### What it looks like
+
+Here's a look at our target values data frame.
+
+```{r}
+target_values <- read_csv(
+  file.path(hub_path, "target-data", "target-values-complete.csv"))
+```
+
+For the `"wk inc flu hosp"` target, the target `value` is the count of hospital admissions on the specified `location` and `target_end_date`. Note that this `value` is repeated for all combinations of `output_type` and `output_type_id`, and for different combinations of `reference_date` and `horizon` with the same `target_end_date`.
+
+```{r}
+target_values |>
+  filter(target == "wk inc flu hosp", location == "US",
+         target_end_date == "2022-10-29") |>
+  print(n = 50)
+```
+
+For the `"wk flu hosp rate category"` target, the target `value` is either `0` for category levels that were not observed for a given combination of `location` and `target_end_date`, or `1` otherwise.  Again, these values are repeated for different combinations of `reference_date` and `horizon` with the same `target_end_date`.  Although the values are different for different `output_type_ids`, there is some redundancy in that there is only one row with a `1` for each combination of `location` and `target_end_date`.
+
+```{r}
+target_values |>
+  filter(target == "wk flu hosp rate category", location == "US",
+         target_end_date == "2022-10-29") |>
+  print(n = 8)
+```
+
+For the `"wk flu hosp rate"` target, the target `value` is either `0` when the `output_type_id` is less than the observed hospitalization rate, or `1` when the `output_type_id` is greater than or equal to the observed hospitalization rate. In terms of data redundancy, essentially the same comments apply as for the `pmf` output type.
+
+```{r}
+target_values |>
+  filter(target == "wk flu hosp rate", location == "US",
+         target_end_date == "2022-10-29", horizon == 0) |>
+  print(n = 10)
+```
+
+```{r}
+target_values |>
+  filter(target == "wk flu hosp rate", location == "US",
+         target_end_date == "2022-10-29", horizon == 1) |>
+  print(n = 10)
+```
+
+#### Caveat! `"sample"` output type not supported?
+
+**Note:** We don't have any forecasts with output type `sample` in our example. However, I think that for a sample output type, it's not possible to specify a "complete" submission file with all possible values of the `output_type_id` under our current proposal for sample indexing, where we would allow modelers to use any string(s) of their choice for the sample indices in the `output_type_id` column. Specifying all possible values of the `output_type_id` in a way that can be used as an `by/on` specification for a `join/merge` operation between model output data and target value data is infeasible. That means that the format proposed here **does not work** as a general solution for all output types.
+
+- Q: Why do we need to be able to join on `output_type_id`?
+    - A: Note that for the `pmf` and `cdf` output types, the target `value` is different for different `output_type_id` levels. If we have those output types in the mix, we'll have to join on the `output_type_id` to get the right matchup between predictions and observations.
+- Q: Couldn't we just handle this differently for different output types?
+    - A: Seems like we'll have to, see the next proposals for possible data formats.
+
+Regardless, we'll illustrate how the data format as illustrated so far could be used for the output types other than sample, to be clear about our goals.
+
+#### Example use 2a-i: plotting target data alongside representations of individual forecasts
+
+Here's a plot of a partial approximation to the predictive cdfs (based on predictive quantiles) along with the observed target value, separately for each forecast task in our earlier example:
+
+```{r}
+ca_target_values <- target_values |>
+  dplyr::filter(location == ca_fips,
+                target == "wk inc flu hosp",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2022-12-10")
+
+ca_model_outputs <- model_outputs |>
+  dplyr::filter(location == ca_fips,
+                reference_date == "2022-11-19",
+                model_id == "PSI-DICE",
+                target == "wk inc flu hosp",
+                output_type == "quantile")
+
+ggplot() +
+  geom_line(
+    mapping = aes(y = output_type_id, x = value),
+    data = ca_model_outputs |>
+      dplyr::mutate(output_type_id = as.numeric(output_type_id))
+  ) +
+  geom_vline(
+    mapping = aes(xintercept = value),
+    color = "orange",
+    data = ca_target_values,
+    linetype = 2
+  ) +
+  facet_wrap( ~ target_end_date)
+```
+
+Here's the equivalent thing, but based on the CDF forecasts of hospitalization rates (note that although the plots look similar, the axes assigned to `output_type_id` and `value` switched, and the representation of the observed `value` was a vertical line above but is a full cdf now):
+
+```{r}
+ca_target_values <- target_values |>
+  dplyr::filter(location == ca_fips,
+                target == "wk flu hosp rate",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2022-12-10")
+
+ca_model_outputs <- model_outputs |>
+  dplyr::filter(location == ca_fips,
+                reference_date == "2022-11-19",
+                model_id == "PSI-DICE",
+                target == "wk flu hosp rate",
+                output_type == "cdf")
+
+ggplot() +
+  geom_line(
+    mapping = aes(x = output_type_id, y = value),
+    data = ca_model_outputs |>
+      dplyr::mutate(output_type_id = as.numeric(output_type_id))
+  ) +
+  geom_line(
+    mapping = aes(x = output_type_id, y = value),
+    color = "orange",
+    data = ca_target_values |>
+      dplyr::mutate(output_type_id = as.numeric(output_type_id)),
+    linetype = 2
+  ) +
+  facet_wrap( ~ target_end_date)
+```
+
+#### Example use 2a-ii: evaluating forecasts
+
+The target data in this form are suitable for merging into a data frame of predictions in order to compute scores.  Here, we'll merge all observed values in at once, so that every row has an observed and predicted value.  We'll then give some examples demonstrating that we have sufficient information to calculate some common scores.
+
+```{r}
+task_id_vars <- c("location", "reference_date", "horizon", "target_end_date",
+                  "target")
+
+tic()
+outputs_and_targets <- model_outputs |>
+  rename(prediction = value) |>
+  left_join(
+    target_values |> rename(observation = value),
+    by = c(task_id_vars, "output_type", "output_type_id"))
+toc()
+
+head(outputs_and_targets)
+
+head(outputs_and_targets[c("location", "reference_date", "target_end_date",
+                           "output_type_id", "prediction", "observation")])
+
+any(is.na(outputs_and_targets$observation))
+```
+
+MAE and RMSE for predictive medians and means:
+
+```{r}
+outputs_and_targets |>
+  group_by(model_id) |>
+  summarize(
+    mae = mean(abs(observation - prediction)),
+    rmse = sqrt(mean((observation - prediction)^2))
+  )
+```
+
+Here's an example where we compute one-sided quantile coverage rates for each model:
+
+```{r}
+coverage_results <- outputs_and_targets |>
+  filter(output_type == "quantile") |>
+  mutate(covered = observation <= prediction) |>
+  group_by(model_id, output_type_id) |>
+  summarize(coverage_rate = mean(covered)) |>
+  mutate(output_type_id = as.numeric(output_type_id))
+
+head(coverage_results)
+
+ggplot() +
+  geom_line(
+    mapping = aes(x = output_type_id, y = coverage_rate,
+                  linetype = model_id, color = model_id),
+    data = coverage_results) +
+  geom_abline(intercept = 0, slope = 1, linetype = 2) +
+  ylim(0, 1)
+```
+
+Some example scores for the categorical/pmf predictions:
+
+```{r}
+pmf_outputs_and_targets <- outputs_and_targets |>
+  filter(output_type == "pmf")
+
+head(pmf_outputs_and_targets[c("location", "reference_date", "target_end_date",
+                           "output_type_id", "prediction", "observation")])
+```
+
+Here are log scores and a "thresholded log score" calculation as was formerly used by CDC:
+```{r}
+pmf_outputs_and_targets |>
+  filter(abs(observation - 1) < 1e-8) |>
+  mutate(
+    log_score = log(prediction),
+    thresholded_log_score = pmax(-10, log_score)) |>
+  group_by(model_id) |>
+  summarize(
+    mean_log_score = mean(log_score),
+    mean_thresholded_log_score = mean(thresholded_log_score)
+  )
+```
+
+Brier score:
+
+```{r}
+group_vars <- c(task_id_vars, "model_id")
+pmf_outputs_and_targets |>
+  group_by(across(all_of(group_vars))) |>
+  summarize(
+    Brier_score_term = sum((observation - prediction)^2)
+  ) |>
+  group_by(model_id) |>
+  summarize(
+    Brier_score = mean(Brier_score_term)
+  )
+```
+
+Ranked probability score:
+
+```{r}
+pmf_outputs_and_targets |>
+  group_by(across(all_of(group_vars))) |>
+  summarize(
+    RPS = sum((cumsum(observation) - cumsum(prediction))^2)
+  ) |>
+  group_by(model_id) |>
+  summarize(
+    RPS = mean(RPS)
+  )
+```
+
+Finally, here is an approximation of CRPS based on the CDF forecasts:
+
+```{r}
+outputs_and_targets |>
+  filter(output_type == "cdf") |>
+  group_by(across(all_of(c(task_id_vars, "model_id")))) |>
+  summarize(
+    CRPS = mean((observation - prediction)^2)
+  ) |>
+  group_by(model_id) |>
+  summarize(
+    CRPS = mean(CRPS)
+  )
+```
+
+### Target data format 2b: `"*"` for unnecessary output metadata
+
+As described above, for the quantile and sample output types, the same observed value is used for each level of the `output_type_id`. We can eliminate some redundancy in the target values data set by avoiding a merge on the `output_type_id` column for those output types.  We'll use the symbol `"*"` to indicate that that column of the target values should match to any value in the corresponding column of model outputs. This requires a convention that hubs not use the symbol `"*"` as a possible value for the `output_type_id`.  If we adopt this, we could probably formally encode this convention in the hubverse schema for tasks.json files?
+
+```{r}
+target_values_2b <- read_csv(
+  file.path(hub_path, "target-data", "target-values-distinct_oti.csv"))
+
+dim(target_values)
+dim(target_values_2b)
+
+head(target_values_2b)
+
+target_values_2b |>
+  filter(output_type == "quantile") |>
+  distinct(output_type_id)
+```
+
+Here's how the merge operation could be implemented, yielding the same result as before:
+```{r}
+tic()
+outputs_and_targets_2b <- bind_rows(
+  model_outputs |>
+    filter(output_type == "quantile") |>
+    rename(prediction = value) |>
+    left_join(
+      target_values_2b |>
+        select(-output_type_id) |>
+        rename(observation = value),
+      by = c(task_id_vars, "output_type")),
+  model_outputs |>
+    filter(output_type != "quantile") |>
+    rename(prediction = value) |>
+    left_join(
+      target_values_2b |>
+        rename(observation = value),
+      by = c(task_id_vars, "output_type", "output_type_id")),
+)
+toc()
+
+identical(
+  outputs_and_targets |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id),
+  outputs_and_targets_2b |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id))
+```
+
+
+### Target data format 2c: `"*"` for all unnecessary task ids and output metadata
+
+Data format 2b still had some duplicated `value`s, across the `mean`, `median`, and `quantile` outputs types and for different combinations of `reference_date` and `horizon` with the same `target_end_date`.  In this data format, we use a `"*"` value for any column that is not needed to distinguish between task id and output metadata combinations with different `value`s.  Note that this requires us to make an assumption that the hub did not specify any required or optional task id values of `"*"` alongside non-`"*"` values for the same variables.
+
+```{r}
+target_values_2c <- read_csv(
+  file.path(hub_path, "target-data", "target-values-distinct.csv"))
+
+dim(target_values)
+dim(target_values_2b)
+dim(target_values_2c)
+
+head(target_values_2c)
+target_values_2c |> filter(target == "wk flu hosp rate category")
+target_values_2c |> filter(target == "wk flu hosp rate")
+```
+
+With this setup, the logic of a join operation is that we will join on all task id columns as well as `output_type` and `output_type_id`, using an `or` join condition for each column where a target value row is merged in to a model output row either if both data frames have the same value, or the target values column has the value `"*"` and an `and` condition across columns.
+
+As far as I can tell, it's not possible to do this join operation cleanly in native `dplyr` code. Here, I tried two approaches:
+
+1. In the first, I did the join in SQL, creating extra columns in augmented versions of the data sets to facilitate the comparisons. The join operation takes a long time (3000-7600 minutes depending on... my laptop's memory availability??) to run, which is not really acceptable.  Maybe there is a better way to do the operation though?
+2. Split the targets data frame into groups of rows with the same sets of columns that should match all values in the model outputs, perform an inner join of each group of target rows with the model outputs based on the other columns, and combine the results.
+
+Code for method 1 is below. I am setting these code chunks to `eval = FALSE` because they just take too long to run. The checks pass after some standardization of data types.
+
+```{r, eval = FALSE}
+library(sqldf)
+
+model_outputs_augmented  <- model_outputs |>
+  rename(prediction = value) |>
+  mutate(true_col = TRUE)
+
+target_values_2c_augmented <- target_values_2c |>
+  rename(observation = value) |>
+  mutate(
+    location_match_all = (as.character(location) == "*"),
+    reference_date_match_all = (as.character(reference_date) == "*"),
+    horizon_match_all = (as.character(horizon) == "*"),
+    target_end_date_match_all = (as.character(target_end_date) == "*"),
+    target_match_all = (as.character(target) == "*"),
+    output_type_id_match_all = (as.character(output_type_id) == "*")
+  )
+
+tic()
+outputs_and_targets_2c <- sqldf("
+  select m.model_id,
+         m.location,
+         m.reference_date,
+         m.horizon,
+         m.target_end_date,
+         m.target,
+         m.output_type,
+         m.output_type_id,
+         m.prediction,
+         t.observation
+  from model_outputs_augmented m
+  left join target_values_2c_augmented t on
+    (m.location = t.location or m.true_col = t.location_match_all) and
+    (m.reference_date = t.reference_date or m.true_col = t.reference_date_match_all) and
+    (m.horizon = t.horizon or m.true_col = t.horizon_match_all) and
+    (m.target_end_date = t.target_end_date or m.true_col = t.target_end_date_match_all) and
+    (m.target = t.target or m.true_col = t.target_match_all) and
+    (m.output_type_id = t.output_type_id or m.true_col = t.output_type_id_match_all)")
+toc()
+```
+
+```{r, eval = FALSE}
+identical(
+  outputs_and_targets |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id) |>
+    select(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id, prediction, observation)  |>
+    mutate(reference_date = as.integer(reference_date),
+           horizon = as.integer(horizon)) |>
+    as.data.frame(),
+  outputs_and_targets_2c |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id) |>
+    select(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id, prediction, observation) |>
+    mutate(reference_date = as.integer(reference_date),
+           horizon = as.integer(horizon)) |>
+    as.data.frame())
+```
+
+Method 2: split by group of columns matching all values, inner join for each group, row bind the results.  Note that because the string `"*"` was used in the target data file to denote "matches all values", some fields like `reference_date` and `horizon` have had their data types coerced to character in that data set.  A final implementation of this merge operation would benefit from re-casting data types at the end.
+
+```{r}
+tic()
+
+task_id_and_output_meta_cols <- c(task_id_vars, "output_type", "output_type_id")
+
+target_values_2c$cols_match_all <- apply(
+  as.matrix(target_values_2c[task_id_and_output_meta_cols]) == "*",
+  1,
+  function(row) {
+    list(task_id_and_output_meta_cols[row])
+  })
+
+head(target_values_2c)
+target_values_2c$cols_match_all[[1]]
+
+cols_match_all_pasted <- purrr::map_chr(
+  target_values_2c$cols_match_all,
+  function(c) do.call(paste, c(c, collapse = "-")))
+
+unique_cols_match_all <- unique(target_values_2c$cols_match_all)
+names(unique_cols_match_all) <- purrr::map_chr(
+  unique_cols_match_all,
+  function(c) do.call(paste, c(c, collapse = "-")))
+unique_cols_match_all
+
+unique(cols_match_all_pasted)
+
+tmp <- split(target_values_2c, cols_match_all_pasted)
+
+outputs_and_targets_2c_v2 <- purrr::map(
+  names(tmp),
+  function(group_name) {
+    merge_on_cols = task_id_and_output_meta_cols[
+      !task_id_and_output_meta_cols %in% unique_cols_match_all[[group_name]][[1]]]
+    inner_join(
+      model_outputs |>
+        rename(prediction = value) |>
+        mutate(
+          reference_date = as.character(reference_date),
+          horizon = as.character(horizon)),
+      tmp[[group_name]] |>
+        rename(observation = value) |>
+        select(all_of(c(merge_on_cols, "observation"))),
+      by = merge_on_cols,
+      relationship = "many-to-one"
+    )
+  }) |>
+  purrr::list_rbind()
+
+toc()
+```
+
+```{r}
+identical(
+  outputs_and_targets |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id) |>
+    select(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id, prediction, observation)  |>
+    mutate(reference_date = as.character(reference_date),
+           horizon = as.integer(horizon)) |>
+    as.data.frame(),
+  outputs_and_targets_2c_v2 |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id) |>
+    select(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id, prediction, observation) |>
+    mutate(horizon = as.integer(horizon)) |>
+    as.data.frame())
+```
+
+The code for this method is a bit involved, but it works and it runs... fairly quickly, though an order of magnitude slower than the more direct join operations used with the previous data formats.
+
+### Target data format 2d: `"*"` for unnecessary output metadata, track only observed values for `"pmf"` and `"cdf"` output types
+
+Here we consider the redundancy in tracking the `value`s for all bins in `pmf` forecasts or all evaluation points for `cdf` forecasts. We can address this redundancy by only tracking the observed bin or the smallest cdf evaluation point where the cdf value is greater than 1.  We return to the settings used for format 2b, so that we keep all combinations of task id variables.  (I'm regarding format 2c as unsuccessful.)  This still results in a substantial savings in the number of rows in the target values data set, because we had 4 pmf bins and 100 cdf evaluation points.
+
+```{r}
+target_values_2d <- read_csv(
+  file.path(hub_path, "target-data", "target-values-distinct-oti-obs-bin-only.csv"))
+
+dim(target_values)
+dim(target_values_2b)
+dim(target_values_2c)
+dim(target_values_2d)
+
+head(target_values_2d)
+target_values_2d |> filter(target == "wk flu hosp rate category")
+target_values_2d |> filter(target == "wk flu hosp rate")
+```
+
+Note that some care is required when filling in the pmf and cdf values for "non-recorded" values of the `output_type_id`:
+
+ - for pmf type, we first check within each group of task id variable values to ensure that at least one `value` was set for that group during the left join of target values into model outputs (that value will be a `1`). If so, we replace any `NA` values by 0.
+ - for cdf type, we do the same check, and also arrange in the order of the bins before setting `NA` values to 0 and computing a cumulative sum to get the correct cdf values.
+
+However, these points can be addressed.  (Note that here to get the bin ordering used for cdf, I'm just converting to numeric -- but I made a proposal [here](https://github.com/Infectious-Disease-Modeling-Hubs/hubValidations/issues/78) to use the ordering specified in the hub's `tasks.json` file.)
+
+```{r}
+tic()
+outputs_and_targets_2d <- bind_rows(
+  model_outputs |>
+    filter(output_type %in% c("mean", "median", "quantile")) |>
+    rename(prediction = value) |>
+    left_join(
+      target_values_2d |>
+        select(-output_type_id) |>
+        rename(observation = value),
+      by = c(task_id_vars, "output_type")),
+  model_outputs |>
+    filter(output_type == "pmf") |>
+    rename(prediction = value) |>
+    left_join(
+      target_values_2d |>
+        rename(observation = value),
+      by = c(task_id_vars, "output_type", "output_type_id")) |>
+    group_by(across(all_of(task_id_vars))) |>
+    mutate(
+      observation = ifelse(
+        any(!is.na(observation)) & is.na(observation),
+        0,
+        observation
+      )
+    ),
+  model_outputs |>
+    filter(output_type == "cdf") |>
+    rename(prediction = value) |>
+    left_join(
+      target_values_2d |>
+        rename(observation = value),
+      by = c(task_id_vars, "output_type", "output_type_id")) |>
+    group_by(across(all_of(c("model_id", task_id_vars)))) |>
+    mutate(
+      output_type_id_num = as.numeric(output_type_id)) |>
+    arrange(output_type_id_num) |>
+    mutate(
+      observation = ifelse(
+        any(!is.na(observation)) & is.na(observation),
+        0,
+        observation
+      ),
+      observation = cumsum(observation)
+    ) |>
+    select(-output_type_id_num)
+)
+toc()
+
+identical(
+  outputs_and_targets |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id),
+  outputs_and_targets_2d |>
+    arrange(location, reference_date, horizon, target_end_date, target,
+            output_type, output_type_id, model_id))
+```
+
+Relative to option 2b, this option yields some additional savings in storage space and also has a comparable or perhaps slightly faster run time. The downside is the imprecision of recording only the `value` for the observed category or cdf level in the target data, which may be imprecise.
