@@ -1,0 +1,232 @@
+---
+title: "Target data formats"
+editor_options:
+  markdown:
+    mode: gfm
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 9
+)
+```
+
+
+
+```{r}
+library(knitr)
+
+library(hubExamples)
+library(hubUtils)
+library(hubData)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggdist)
+
+library(xtable)
+
+theme_set(theme_bw())
+options(width = 110)
+```
+
+# Overview
+
+## Definitions
+
+Target data are the data being modeled in a collaborative modeling exercise. Hubverse tools work with target data in two formats:
+
+1. *Time series* data in "long" format: This is often the native format for data.  Each row of the data set contains one observed value of the time series, contained in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+```{r}
+head(hubExamples::forecast_target_ts)
+```
+In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as `signal` indicating what quantity is reported in each row. The hubverse is not prescriptive about the specific column names in this file other than `observation`.
+
+2. *Target observations*: observed values of the targets for prediction or estimation in the modeling exercise.  This file should be formatted in a manner similar to a model output file, where each row of the data set contains one observed value of a single prediction target in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+```{r}
+head(hubExamples::forecast_target_observations)
+```
+
+A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). Additional details about the target observations format will be given later in this document.
+
+## Target data uses
+
+The most common uses for target data are summarized in the following table, with a ✅ indicating which target data formats are most commonly used for each purpose:
+
+```{r, echo=FALSE, results="asis"}
+data_uses <- tibble(
+  `Data Format` = c("Time series", "Target observations"),
+  `Model Estimation` = c("✅", ""),
+  `Plotting` = c("✅", "✅"),
+  `Evaluation` = c("", "✅")
+)
+kable(data_uses)
+```
+
+## How hubs should provide access to target data
+
+Hubs should ensure that standardized procedures for accessing target data are available.  The data formats that a hub provides may depend on the needs of the specific hub, and which hubverse tools the hub wants to use.  For example, a hub that will not be conducting evaluations by comparing predictions to observed target values may not need to provide data in the target observations format.
+
+Target data access can be provided for in either of two ways:
+
+ 1. by providing example code for accessing target data programmatically
+ 2. by storing snapshots of the target data in the hub repository
+
+Following general conventions for storage of code related to modeling hubs, we recommend that any code for data access be provided in a separate repository following standard language-specific packaging guidelines, or if the code is small in scope it can be placed within the `src` folder of the hub's repository.
+
+In instances where a hub wants to store snapshots of the target data in the hub repository, the data should be placed within the `target-data` folder within the hub.
+
+ - **Note: We still have not settled on any more detailed guidance about file formats or organization: csv, parquet, do we allow partitioning and if so how is that managed?**
+
+# More about the target observations format
+
+Here, we describe the format of the target observations in more detail. We begin with an abstract overview before providing some specific examples.
+
+## Target observations format: the details
+
+Target observations follow a similar format as model outputs, but the `observation` column corresponds to the prediction that would be reported if the observed value of the target was known with certainty. The implications of this vary depending on the `output_type`:
+
+- For the `mean`, `median`, `quantile`, and `sample` output types, the `observation` is the observed value of the prediction target.
+- For the `pmf` output type, the `observation` is `1` when the `output_type_id` corresponds to the observed category (indicating a probability of 1 for that category) and `0` for other categories.
+- For the `cdf` output type, the `observation` is `0` for any `output_type_id` levels that are less than the observed value, and `1` for any `output_type_id` levels that are greater than or equal to the observed value, corresponding to the step function cdf of a probability distribution that places all of its probability at the observed value.
+
+An important difference between target observations and model outputs is that any information from the task id variales or `output_type` and `output_type_id` columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,
+
+- The target observations should include enough of the task id variables and columns with metadata about the outputs (`output_type` and `output_type_id`) to uniquely identify which observations correspond to which predictions. For example, this will typically include task id variables such as `location` and `target_date` (or `target_end_date`), since the observed value will be specific to the `location` and `target_date`.
+- Any task id variables that are not necessary to match observations with predictions can be omitted from the target observations.  For example, if `target_date` is included then `reference_date` and `horizon` variables can be omitted because the same observation will generally correspond to a particular `target_date` regardless of the forecast horizon.  Similarly, in a scenario projection setting, the `scenario_id` can be omitted.
+- The `output_type` and `output_type_id` columns only need to be included if the hub collects pmf or cdf outputs. As was described above, for those two output types the `observation` depends on the `output_type_id`. On the other hand, the `observation` is not specific to the quantile level for quantile forecasts or the sample index for sample forecasts, and so for these output types (as well as mean and median), the `output_type_id` is not needed to align observations with predictions.
+    - If the hub collects quantile, sample, mean, or median outputs alongside pmf or cdf outputs, a combined target observations dataset may be created with all output types. In that case, the target observations should include an `output_type_id` column, but the value of that column will be ignored when merging target observations with predictions of output type quantile, sample, mean, or median. For those output types, the target observations data should only include one row with the observed value for the quantile or sample forecasts in each task id group, rather than one row for each quantile level or for each sample index. The `output_type_id` column in those rows may be set to a missing value as a representation of the fact that that value does not contain information about the quantile level or sample index specified as the `output_type_id` in the model outputs. The precise mechanism used to represent missing values differs depending on the tools being used. For example, in CSV files, an empty string (`""`) may be used, while in parquet files, a `null` is used.
+
+## Target observations format: examples
+
+We will illustrate the above concepts using the example forecast data from `hubExamples` that was discussed briefly in the overview section; please see the [forecast_data vignette](https://hubverse-org.github.io/hubExamples/articles/forecast_data.html) in hubExamples for more detail about these data.
+
+Briefly, this example is for a hub with five task id variables:
+
+- The `location` column contains a FIPS code identifying the location being predicted.
+- The `reference_date` is a date in ISO format that gives the Saturday ending the week the predictions were generated.
+- The `horizon` gives the difference between the `reference_date` and the target date of the forecasts (`target_end_date`, see next item) in units of weeks. Informally, this describes "how far ahead" the predictions are targeting.
+- The `target_end_date` is a date in ISO format that gives the Saturday ending the week being predicted. For example, if the `target_end_date` is `"2022-12-17"`, predictions are for a quantity relating to influenza activity in the week from Sunday, December 11, 2022 through Saturday, December 17, 2022.
+- The `target` describes the target quantity for the prediction.
+
+There are three `targets`, all based on measures of weekly influenza hospitalizations, with forecasts collected in different `output_type`s for each target, as is summarized in the following table:
+
+```{r, echo=FALSE, results="asis"}
+target_output_type_combos <- hubExamples::forecast_outputs |>
+  dplyr::distinct(target, output_type) |>
+  dplyr::mutate(
+    target = factor(target, levels = c("wk inc flu hosp", "wk flu hosp rate", "wk flu hosp rate category"))
+  ) |>
+  dplyr::group_by(target) |>
+  dplyr::summarize(
+    output_type = paste0(output_type, collapse = ", "),
+    .groups = "drop"
+  ) |>
+  dplyr::mutate(
+    description = c(
+      "weekly count of hospital admissions with flu",
+      "week rate of hospital admissions with flu per 100,000 population",
+      "categorical severity level of the hospital admissions rate, with levels 'low', 'moderate', 'high', and 'very high'"
+    )
+  )
+
+kable(target_output_type_combos)
+```
+
+Below, we show snippets of the contents of a `model_out_tbl` with example forecast submissions and the corresponding target observations for each `output_type`. We highlight two points about these objects:
+
+- The `reference_date` and `horizon` columns are included in the model outputs, but they are not included in the target observations.
+- In this example, the target observations for the `mean`, `median`, `quantile`, and `sample` output types are all the same, and they contain `NA` values for the `ouptut_type_id`.  In a hub without `pmf` or `cdf` output types, the `output_type` and `output_type_id` columns could be omitted and this duplication could be eliminated.
+
+### Output type `mean`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "mean") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "mean") |>
+  head()
+```
+
+### Output type `median`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "median") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "median") |>
+  head()
+```
+
+### Output type `quantile`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "quantile") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "quantile") |>
+  head()
+```
+
+### Output type `sample`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "sample") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "sample") |>
+  head()
+```
+
+### Output type `pmf`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "pmf") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "pmf") |>
+  head()
+```
+
+The presence of a `1` for the `observation` in the first row and `0` in the subsequent three rows indicates that the observed rate category in the US on the week of 2022-10-22 was `"low"`. Similarly, the observed rate category in Alabama (FIPS code "01") in that week was `"moderate"`.
+
+### Output type `cdf`
+
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(output_type == "cdf") |>
+  head()
+```
+
+```{r}
+hubExamples::forecast_target_observations |>
+  dplyr::filter(output_type == "cdf") |>
+  head()
+```
+
+The presence of a `0` for the `observation` in the first two rows and a `1` for the `observation` in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75.
