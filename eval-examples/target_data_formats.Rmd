@@ -20,9 +20,9 @@ knitr::opts_chunk$set(
 ```{r}
 library(knitr)
 
-library(hubExamples) # remotes::install_github("https://github.com/hubverse-org/hubExamples")
-library(hubUtils) # remotes::install_github("https://github.com/hubverse-org/hubUtils")
-library(hubData) # remotes::install_github("https://github.com/hubverse-org/hubData")
+library(hubExamples) # remotes::install_github("hubverse-org/hubExamples")
+library(hubUtils) # remotes::install_github("hubverse-org/hubUtils")
+library(hubData) # remotes::install_github("hubverse-org/hubData")
 
 library(readr)
 library(dplyr)
