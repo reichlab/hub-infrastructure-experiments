@@ -39,24 +39,31 @@ options(width = 110)
 
 ## Definitions
 
-Target data are the data being modeled in a collaborative modeling exercise. Hubverse tools work with target data in two formats:
+Target data are the observed data being modeled as the prediction target in a collaborative modeling exercise, sometimes referred to as "ground truth" data. Hubverse tools work with target data in two formats:
 
-1. *Time series* data in "long" format: This is often the native format for data.  Each row of the data set contains one observed value of the time series, contained in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+1. *Time series* data in "long" format: This is often the native or "raw" format for data.  Each row of the data set contains one observed value of the time series, contained in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
 ```{r}
 head(hubExamples::forecast_target_ts)
 ```
-In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as `signal` indicating what quantity is reported in each row. The hubverse is not prescriptive about the specific column names in this file other than `observation`.
+In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as `signal` indicating what quantity is reported in each row. The only restrictions that hubverse tools impose on data in this format is that it should have a column named `observation` and a column with a time index, such as `date` or `time`.
 
-2. *Target observations*: observed values of the targets for prediction or estimation in the modeling exercise.  This file should be formatted in a manner similar to a model output file, where each row of the data set contains one observed value of a single prediction target in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+2. *Target observations* follow a format that is similar to a [hubverse model output file](https://hubverse.io/en/latest/user-guide/model-output.html#example-model-submission-file), with three main differences:
+
+    - Predictions (e.g., means, quantile values, or pmf category probabilities, etc.) are stored in a column named `observation` rather than `value`.
+    - Predictions correspond to a distribution that places probability 1 on the observed target outcome.
+    - We introduce some conventions to avoid duplication of data, described in more detail below. Generally, the columns of the target observations will be a subset of the columns of a valid model output for the hub, with just those columns that are needed to correctly align `observation`s with the corresponding predicted `value`s produced by modelers.
+
+Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
 ```{r}
 head(hubExamples::forecast_target_observations)
 ```
+In this example, the observed weekly influenza hospitalization count in the US on the week ending 2022-10-22 was 2380. A probability distribution that places probability 1 on that outcome will have all quantiles equal to that observed value, so 2380 appears as the `observation` for quantile outputs for that `location` and `target_end_date`. The use of `<NA>` for the `output_type_id` represents the fact that this `observation` is relevant for all quantile levels; this convention will be described in more detail below.
 
-A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). Additional details about the target observations format will be given later in this document.
+A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). In hubs that collect mean, median, quantile, or sample predictions for the reported signal values in the raw time series data, the two formats may be essentially the same, perhaps with some renaming of columns. However, in hubs that form predictions for quantities that are derived from the the raw time series data, such as the peak time or peak incidence, and in hubs that collect pmf or cdf predictions, the formats will differ more substantively.
 
 ## Target data uses
 
-The most common uses for target data are summarized in the following table, with a ✅ indicating which target data formats are most commonly used for each purpose:
+Each target data format is useful for different purposes (see table below). Modelers will most often estimate model parameters by fitting to the raw data in time series format. Both target data formats may be useful for different kinds of data visualizations; for example, a plot of time series predictions in quantile format may use the raw time series data, while a plot of pmf predictions for a categorical target may use the target observations. The primary use case of target observations is for evaluation.
 
 ```{r, echo=FALSE, results="asis"}
 data_uses <- tibble(
@@ -65,7 +72,10 @@ data_uses <- tibble(
   `Plotting` = c("✅", "✅"),
   `Evaluation` = c("", "✅")
 )
-kable(data_uses)
+kable(
+  data_uses,
+  caption = "Common uses for target data. A ✅ indicates which target data formats are most commonly used for each purpose."
+)
 ```
 
 ## How hubs should provide access to target data
@@ -91,11 +101,11 @@ Here, we describe the format of the target observations in more detail. We begin
 
 Target observations follow a similar format as model outputs, but the `observation` column corresponds to the prediction that would be reported if the observed value of the target was known with certainty. The implications of this vary depending on the `output_type`:
 
-- For the `mean`, `median`, `quantile`, and `sample` output types, the `observation` is the observed value of the prediction target.
+- For the `mean`, `median`, `quantile`, and `sample` output types, the `observation` is the observed value of the prediction target. This `observation` is the same for all quantile levels and all sample indices, since a predictive distribution that places all of its probability on the observed outcome will have all quantiles equal to that value and all samples from that distribution will be equal to the observed value.
 - For the `pmf` output type, the `observation` is `1` when the `output_type_id` corresponds to the observed category (indicating a probability of 1 for that category) and `0` for other categories.
 - For the `cdf` output type, the `observation` is `0` for any `output_type_id` levels that are less than the observed value, and `1` for any `output_type_id` levels that are greater than or equal to the observed value, corresponding to the step function cdf of a probability distribution that places all of its probability at the observed value.
 
-An important difference between target observations and model outputs is that any information from the task id variales or `output_type` and `output_type_id` columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,
+An important difference between target observations and model outputs is that any information from the task id variables or `output_type` and `output_type_id` columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,
 
 - The target observations should include enough of the task id variables and columns with metadata about the outputs (`output_type` and `output_type_id`) to uniquely identify which observations correspond to which predictions. For example, this will typically include task id variables such as `location` and `target_date` (or `target_end_date`), since the observed value will be specific to the `location` and `target_date`.
 - Any task id variables that are not necessary to match observations with predictions can be omitted from the target observations.  For example, if `target_date` is included then `reference_date` and `horizon` variables can be omitted because the same observation will generally correspond to a particular `target_date` regardless of the forecast horizon.  Similarly, in a scenario projection setting, the `scenario_id` can be omitted.
@@ -157,6 +167,8 @@ hubExamples::forecast_target_observations |>
   head()
 ```
 
+For the `mean` output type, the `observation` is the numeric value of the prediction target. Here, the first row of the target observations indicates that 2380 flu hospitalizations were reported in the US for the week ending on 2022-10-22. This can be viewed as the mean of a "predictive distribution" that is entirely concentrated on that observed value. The use of `<NA>` for the `output_type_id` matches the convention for model output with the mean output type.
+
 ### Output type `median`
 
 ```{r}
@@ -170,6 +182,8 @@ hubExamples::forecast_target_observations |>
   dplyr::filter(output_type == "median") |>
   head()
 ```
+
+The `observation` for the `median` output type is the same as for the `mean` output type: the numeric value of the prediction target. This is the median of a distribution that is entirely concentrated on that observed value. Again, the use of `<NA>` for the `output_type_id` matches the convention for model output with the median output type.
 
 ### Output type `quantile`
 
@@ -185,6 +199,8 @@ hubExamples::forecast_target_observations |>
   head()
 ```
 
+As with the `mean` and `median` output types, the `observation` for a quantile type is the observed numeric value of the prediction target, which is the quantile of a predictive distribution that assigns probablity 1 to that observed value at any quantile probability level. A model output file would need to have a separate row for each quantile level reported in the `output_type_id` column. As a space-saving convention, we use `output_type_id = <NA>` to indicate that this `observation` applies to all quantile levels.
+
 ### Output type `sample`
 
 ```{r}
@@ -198,6 +214,8 @@ hubExamples::forecast_target_observations |>
   dplyr::filter(output_type == "sample") |>
   head()
 ```
+
+As with the above output types, the `observation` for a sample type is the observed numeric value of the prediction target since all samples from a predictive distribution that assigns probablity 1 to the observed value will be equal to that value. A model output file would need to have a separate row for each sample, with the sample index recorded in the `output_type_id` column. We use `output_type_id = <NA>` to indicate that this `observation` applies to all predictive samples.
 
 ### Output type `pmf`
 
@@ -229,4 +247,4 @@ hubExamples::forecast_target_observations |>
   head()
 ```
 
-The presence of a `0` for the `observation` in the first two rows and a `1` for the `observation` in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75.
+The presence of a `0` for the `observation` in the first two rows and a `1` for the `observation` in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75. These `observation`s encode a step function CDF that is equal to 0 when the `output_type_id` is less than the observed rate and jumps to 1 at the observed rate.

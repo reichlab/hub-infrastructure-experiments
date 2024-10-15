@@ -378,9 +378,9 @@ options(width = 110)</code></pre>
 <h1>Overview</h1>
 <div id="definitions" class="section level2">
 <h2>Definitions</h2>
-<p>Target data are the data being modeled in a collaborative modeling exercise. Hubverse tools work with target data in two formats:</p>
+<p>Target data are the observed data being modeled as the prediction target in a collaborative modeling exercise, sometimes referred to as “ground truth” data. Hubverse tools work with target data in two formats:</p>
 <ol style="list-style-type: decimal">
-<li><em>Time series</em> data in “long” format: This is often the native format for data. Each row of the data set contains one observed value of the time series, contained in a column named <code>observation</code>. Here is an example of this form of data, drawn from the forecasting example in <code>hubExamples</code>:</li>
+<li><em>Time series</em> data in “long” format: This is often the native or “raw” format for data. Each row of the data set contains one observed value of the time series, contained in a column named <code>observation</code>. Here is an example of this form of data, drawn from the forecasting example in <code>hubExamples</code>:</li>
 </ol>
 <pre class="r"><code>head(hubExamples::forecast_target_ts)
 ##         date location observation
@@ -390,10 +390,16 @@ options(width = 110)</code></pre>
 ## 4 2020-01-11       27           0
 ## 5 2020-01-11       30           0
 ## 6 2020-01-11       37           0</code></pre>
-<p>In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as <code>signal</code> indicating what quantity is reported in each row. The hubverse is not prescriptive about the specific column names in this file other than <code>observation</code>.</p>
+<p>In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as <code>signal</code> indicating what quantity is reported in each row. The only restrictions that hubverse tools impose on data in this format is that it should have a column named <code>observation</code> and a column with a time index, such as <code>date</code> or <code>time</code>.</p>
 <ol start="2" style="list-style-type: decimal">
-<li><em>Target observations</em>: observed values of the targets for prediction or estimation in the modeling exercise. This file should be formatted in a manner similar to a model output file, where each row of the data set contains one observed value of a single prediction target in a column named <code>observation</code>. Here is an example of this form of data, drawn from the forecasting example in <code>hubExamples</code>:</li>
+<li><p><em>Target observations</em> follow a format that is similar to a <a href="https://hubverse.io/en/latest/user-guide/model-output.html#example-model-submission-file">hubverse model output file</a>, with three main differences:</p>
+<ul>
+<li>Predictions (e.g., means, quantile values, or pmf category probabilities, etc.) are stored in a column named <code>observation</code> rather than <code>value</code>.</li>
+<li>Predictions correspond to a distribution that places probability 1 on the observed target outcome.</li>
+<li>We introduce some conventions to avoid duplication of data, described in more detail below. Generally, the columns of the target observations will be a subset of the columns of a valid model output for the hub, with just those columns that are needed to correctly align <code>observation</code>s with the corresponding predicted <code>value</code>s produced by modelers.</li>
+</ul></li>
 </ol>
+<p>Here is an example of this form of data, drawn from the forecasting example in <code>hubExamples</code>:</p>
 <pre class="r"><code>head(hubExamples::forecast_target_observations)
 ##   location target_end_date          target output_type output_type_id observation
 ## 1       US      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;        2380
@@ -402,12 +408,14 @@ options(width = 110)</code></pre>
 ## 4       04      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;          22
 ## 5       05      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;          50
 ## 6       06      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;         124</code></pre>
-<p>A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). Additional details about the target observations format will be given later in this document.</p>
+<p>In this example, the observed weekly influenza hospitalization count in the US on the week ending 2022-10-22 was 2380. A probability distribution that places probability 1 on that outcome will have all quantiles equal to that observed value, so 2380 appears as the <code>observation</code> for quantile outputs for that <code>location</code> and <code>target_end_date</code>. The use of <code>&lt;NA&gt;</code> for the <code>output_type_id</code> represents the fact that this <code>observation</code> is relevant for all quantile levels; this convention will be described in more detail below.</p>
+<p>A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). In hubs that collect mean, median, quantile, or sample predictions for the reported signal values in the raw time series data, the two formats may be essentially the same, perhaps with some renaming of columns. However, in hubs that form predictions for quantities that are derived from the the raw time series data, such as the peak time or peak incidence, and in hubs that collect pmf or cdf predictions, the formats will differ more substantively.</p>
 </div>
 <div id="target-data-uses" class="section level2">
 <h2>Target data uses</h2>
-<p>The most common uses for target data are summarized in the following table, with a ✅ indicating which target data formats are most commonly used for each purpose:</p>
+<p>Each target data format is useful for different purposes (see table below). Modelers will most often estimate model parameters by fitting to the raw data in time series format. Both target data formats may be useful for different kinds of data visualizations; for example, a plot of time series predictions in quantile format may use the raw time series data, while a plot of pmf predictions for a categorical target may use the target observations. The primary use case of target observations is for evaluation.</p>
 <table>
+<caption>Common uses for target data. A ✅ indicates which target data formats are most commonly used for each purpose.</caption>
 <thead>
 <tr class="header">
 <th align="left">Data Format</th>
@@ -454,11 +462,11 @@ options(width = 110)</code></pre>
 <h2>Target observations format: the details</h2>
 <p>Target observations follow a similar format as model outputs, but the <code>observation</code> column corresponds to the prediction that would be reported if the observed value of the target was known with certainty. The implications of this vary depending on the <code>output_type</code>:</p>
 <ul>
-<li>For the <code>mean</code>, <code>median</code>, <code>quantile</code>, and <code>sample</code> output types, the <code>observation</code> is the observed value of the prediction target.</li>
+<li>For the <code>mean</code>, <code>median</code>, <code>quantile</code>, and <code>sample</code> output types, the <code>observation</code> is the observed value of the prediction target. This <code>observation</code> is the same for all quantile levels and all sample indices, since a predictive distribution that places all of its probability on the observed outcome will have all quantiles equal to that value and all samples from that distribution will be equal to the observed value.</li>
 <li>For the <code>pmf</code> output type, the <code>observation</code> is <code>1</code> when the <code>output_type_id</code> corresponds to the observed category (indicating a probability of 1 for that category) and <code>0</code> for other categories.</li>
 <li>For the <code>cdf</code> output type, the <code>observation</code> is <code>0</code> for any <code>output_type_id</code> levels that are less than the observed value, and <code>1</code> for any <code>output_type_id</code> levels that are greater than or equal to the observed value, corresponding to the step function cdf of a probability distribution that places all of its probability at the observed value.</li>
 </ul>
-<p>An important difference between target observations and model outputs is that any information from the task id variales or <code>output_type</code> and <code>output_type_id</code> columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,</p>
+<p>An important difference between target observations and model outputs is that any information from the task id variables or <code>output_type</code> and <code>output_type_id</code> columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,</p>
 <ul>
 <li>The target observations should include enough of the task id variables and columns with metadata about the outputs (<code>output_type</code> and <code>output_type_id</code>) to uniquely identify which observations correspond to which predictions. For example, this will typically include task id variables such as <code>location</code> and <code>target_date</code> (or <code>target_end_date</code>), since the observed value will be specific to the <code>location</code> and <code>target_date</code>.</li>
 <li>Any task id variables that are not necessary to match observations with predictions can be omitted from the target observations. For example, if <code>target_date</code> is included then <code>reference_date</code> and <code>horizon</code> variables can be omitted because the same observation will generally correspond to a particular <code>target_date</code> regardless of the forecast horizon. Similarly, in a scenario projection setting, the <code>scenario_id</code> can be omitted.</li>
@@ -540,6 +548,7 @@ options(width = 110)</code></pre>
 ## 4       04      2022-10-22 wk inc flu hosp        mean           &lt;NA&gt;          22
 ## 5       05      2022-10-22 wk inc flu hosp        mean           &lt;NA&gt;          50
 ## 6       06      2022-10-22 wk inc flu hosp        mean           &lt;NA&gt;         124</code></pre>
+<p>For the <code>mean</code> output type, the <code>observation</code> is the numeric value of the prediction target. Here, the first row of the target observations indicates that 2380 flu hospitalizations were reported in the US for the week ending on 2022-10-22. This can be viewed as the mean of a “predictive distribution” that is entirely concentrated on that observed value. The use of <code>&lt;NA&gt;</code> for the <code>output_type_id</code> matches the convention for model output with the mean output type.</p>
 </div>
 <div id="output-type-median" class="section level3">
 <h3>Output type <code>median</code></h3>
@@ -565,6 +574,7 @@ options(width = 110)</code></pre>
 ## 4       04      2022-10-22 wk inc flu hosp      median           &lt;NA&gt;          22
 ## 5       05      2022-10-22 wk inc flu hosp      median           &lt;NA&gt;          50
 ## 6       06      2022-10-22 wk inc flu hosp      median           &lt;NA&gt;         124</code></pre>
+<p>The <code>observation</code> for the <code>median</code> output type is the same as for the <code>mean</code> output type: the numeric value of the prediction target. This is the median of a distribution that is entirely concentrated on that observed value. Again, the use of <code>&lt;NA&gt;</code> for the <code>output_type_id</code> matches the convention for model output with the median output type.</p>
 </div>
 <div id="output-type-quantile" class="section level3">
 <h3>Output type <code>quantile</code></h3>
@@ -590,6 +600,7 @@ options(width = 110)</code></pre>
 ## 4       04      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;          22
 ## 5       05      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;          50
 ## 6       06      2022-10-22 wk inc flu hosp    quantile           &lt;NA&gt;         124</code></pre>
+<p>As with the <code>mean</code> and <code>median</code> output types, the <code>observation</code> for a quantile type is the observed numeric value of the prediction target, which is the quantile of a predictive distribution that assigns probablity 1 to that observed value at any quantile probability level. A model output file would need to have a separate row for each quantile level reported in the <code>output_type_id</code> column. As a space-saving convention, we use <code>output_type_id = &lt;NA&gt;</code> to indicate that this <code>observation</code> applies to all quantile levels.</p>
 </div>
 <div id="output-type-sample" class="section level3">
 <h3>Output type <code>sample</code></h3>
@@ -615,6 +626,7 @@ options(width = 110)</code></pre>
 ## 4       04      2022-10-22 wk inc flu hosp      sample           &lt;NA&gt;          22
 ## 5       05      2022-10-22 wk inc flu hosp      sample           &lt;NA&gt;          50
 ## 6       06      2022-10-22 wk inc flu hosp      sample           &lt;NA&gt;         124</code></pre>
+<p>As with the above output types, the <code>observation</code> for a sample type is the observed numeric value of the prediction target since all samples from a predictive distribution that assigns probablity 1 to the observed value will be equal to that value. A model output file would need to have a separate row for each sample, with the sample index recorded in the <code>output_type_id</code> column. We use <code>output_type_id = &lt;NA&gt;</code> to indicate that this <code>observation</code> applies to all predictive samples.</p>
 </div>
 <div id="output-type-pmf" class="section level3">
 <h3>Output type <code>pmf</code></h3>
@@ -666,7 +678,7 @@ options(width = 110)</code></pre>
 ## 4       US      2022-10-22 wk flu hosp rate         cdf              1           1
 ## 5       US      2022-10-22 wk flu hosp rate         cdf           1.25           1
 ## 6       US      2022-10-22 wk flu hosp rate         cdf            1.5           1</code></pre>
-<p>The presence of a <code>0</code> for the <code>observation</code> in the first two rows and a <code>1</code> for the <code>observation</code> in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75.</p>
+<p>The presence of a <code>0</code> for the <code>observation</code> in the first two rows and a <code>1</code> for the <code>observation</code> in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75. These <code>observation</code>s encode a step function CDF that is equal to 0 when the <code>output_type_id</code> is less than the observed rate and jumps to 1 at the observed rate.</p>
 </div>
 </div>
 </div>
