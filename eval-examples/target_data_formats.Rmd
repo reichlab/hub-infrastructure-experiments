@@ -39,80 +39,97 @@ options(width = 110)
 
 ## Definitions
 
-Target data are the observed data being modeled as the prediction target in a collaborative modeling exercise, sometimes referred to as "ground truth" data. Hubverse tools work with target data in two formats:
+Target data are the observed data being modeled as the prediction target in a collaborative modeling exercise, sometimes referred to as "ground truth" data. Some hubverse tools work with target data directly, e.g. for plotting forecasts and data alongside each other. Other hubverse tools took with *oracle outputs*, which are derived from the target data and represent model output that would have been generated if the target data values had been known ahead of time. We describe these formats briefly here, and give more detail about the oracle outputs in the remainder of this document.
 
-1. *Time series* data in "long" format: This is often the native or "raw" format for data.  Each row of the data set contains one observed value of the time series, contained in a column named `observation`. Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+### Time series
+
+The first format is *time series* data.  This is often the native or "raw" format for data.  Each row of the data set contains one observed value of the time series, contained in a column named `observation`. Here is an example of this form of data, showing selected dates for Massachusetts (FIPS code 25), drawn from the forecasting example in `hubExamples`:
 ```{r}
-head(hubExamples::forecast_target_ts)
+hubExamples::forecast_target_ts |>
+  dplyr::filter(location == "25", date >= "2022-11-19", date <= "2023-01-07")
 ```
 In settings where a hub is working with multiple observed signals at each time point (e.g., cases, hospitalizations, and deaths), the values of those signals will be given in different rows, with a column such as `signal` indicating what quantity is reported in each row. The only restrictions that hubverse tools impose on data in this format is that it should have a column named `observation` and a column with a time index, such as `date` or `time`.
 
-2. *Target observations* follow a format that is similar to a [hubverse model output file](https://hubverse.io/en/latest/user-guide/model-output.html#example-model-submission-file), with three main differences:
+### Oracle output
 
-    - Predictions (e.g., means, quantile values, or pmf category probabilities, etc.) are stored in a column named `observation` rather than `value`.
-    - Predictions correspond to a distribution that places probability 1 on the observed target outcome.
-    - We introduce some conventions to avoid duplication of data, described in more detail below. Generally, the columns of the target observations will be a subset of the columns of a valid model output for the hub, with just those columns that are needed to correctly align `observation`s with the corresponding predicted `value`s produced by modelers.
+Oracle output follows a format that is similar to a [hubverse model output file](https://hubverse.io/en/latest/user-guide/model-output.html#example-model-submission-file), with three main differences:
 
-Here is an example of this form of data, drawn from the forecasting example in `hubExamples`:
+- Predictions correspond to a distribution that places probability 1 on the observed target outcome.
+- Predictions (e.g., means, quantile values, or pmf category probabilities, etc.) are stored in a column named `oracle_value` rather than `value`.
+- We introduce some conventions to avoid duplication of data, described in more detail below. Generally, the columns of the oracle output will be a subset of the columns of valid model output for the hub, with just those columns that are needed to correctly align `oracle_value`s with the corresponding predicted `value`s produced by modelers.
+
+Here is an example of this form of data, based on the forecasting example in `hubExamples`:
 ```{r}
-head(hubExamples::forecast_target_observations)
+hubExamples::forecast_target_observations |>
+  dplyr::filter(location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07",
+                output_type == "quantile") |>
+  dplyr::rename(oracle_value = observation)
 ```
-In this example, the observed weekly influenza hospitalization count in the US on the week ending 2022-10-22 was 2380. A probability distribution that places probability 1 on that outcome will have all quantiles equal to that observed value, so 2380 appears as the `observation` for quantile outputs for that `location` and `target_end_date`. The use of `<NA>` for the `output_type_id` represents the fact that this `observation` is relevant for all quantile levels; this convention will be described in more detail below.
+In this example, the observed weekly influenza hospitalization count in MA on the week ending 2022-11-19 was 79. A probability distribution that places probability 1 on that outcome will have all quantiles equal to that observed value, so 79 appears as the `oracle_value` for quantile outputs for that `location` and `target_end_date`. The use of `<NA>` for the `output_type_id` represents the fact that this `oracle_value` is relevant for all quantile levels; this convention will be described in more detail below.
 
-A hub will typically have access to data in time series format, and will need to convert it to the target observations format for use with any tools that require it in that format (see the next section). In hubs that collect mean, median, quantile, or sample predictions for the reported signal values in the raw time series data, the two formats may be essentially the same, perhaps with some renaming of columns. However, in hubs that form predictions for quantities that are derived from the the raw time series data, such as the peak time or peak incidence, and in hubs that collect pmf or cdf predictions, the formats will differ more substantively.
+For comparison, here is a display of the corresponding model output:
+```{r}
+hubExamples::forecast_outputs |>
+  dplyr::filter(location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07",
+                output_type == "quantile")
+```
 
-## Target data uses
+A hub will typically have access to data in time series format, and will need to convert it to the oracle output format for use with any tools that require it in that format (see the next section). In hubs that collect mean, median, quantile, or sample predictions for the reported signal values in the raw time series data, the two formats may be essentially the same, perhaps with some renaming of columns. However, in hubs that form predictions for quantities that are derived from the the raw time series data, such as the peak time or peak incidence, and in hubs that collect pmf or cdf predictions, the formats will differ more substantively.
 
-Each target data format is useful for different purposes (see table below). Modelers will most often estimate model parameters by fitting to the raw data in time series format. Both target data formats may be useful for different kinds of data visualizations; for example, a plot of time series predictions in quantile format may use the raw time series data, while a plot of pmf predictions for a categorical target may use the target observations. The primary use case of target observations is for evaluation.
+## Uses of target time series data and oracle output
+
+Each data format is useful for different purposes (see table below). Modelers will most often estimate model parameters by fitting to the raw data in time series format. Both data formats may be useful for different kinds of data visualizations; for example, a plot of time series predictions in quantile format may use the raw time series data, while a plot of pmf predictions for a categorical target may use the oracle output. The primary use case of oracle output is for evaluation.
 
 ```{r, echo=FALSE, results="asis"}
 data_uses <- tibble(
-  `Data Format` = c("Time series", "Target observations"),
+  `Data Format` = c("Time series", "Oracle output"),
   `Model Estimation` = c("✅", ""),
   `Plotting` = c("✅", "✅"),
   `Evaluation` = c("", "✅")
 )
 kable(
   data_uses,
-  caption = "Common uses for target data. A ✅ indicates which target data formats are most commonly used for each purpose."
+  caption = "Common uses for target time series and oracle output data. A ✅ indicates which data formats are most commonly used for each purpose."
 )
 ```
 
-## How hubs should provide access to target data
+## How hubs should provide access to target time series data and oracle output
 
-Hubs should ensure that standardized procedures for accessing target data are available.  The data formats that a hub provides may depend on the needs of the specific hub, and which hubverse tools the hub wants to use.  For example, a hub that will not be conducting evaluations by comparing predictions to observed target values may not need to provide data in the target observations format.
+Hubs should ensure that standardized procedures for accessing target data are available.  The data formats that a hub provides may depend on the needs of the specific hub, and which hubverse tools the hub wants to use.  For example, a hub that will not be conducting evaluations by comparing predictions to observed target values may not need to provide data in the oracle output format.
 
-Target data access can be provided for in either of two ways:
+Access to target time series data and oracle output can be provided in either of two ways:
 
- 1. by providing example code for accessing target data programmatically
- 2. by storing snapshots of the target data in the hub repository
+ 1. by providing example code for accessing target time series data and/or oracle output programmatically
+ 2. by storing snapshots of the target time series data and/or oracle output in the hub repository
 
 Following general conventions for storage of code related to modeling hubs, we recommend that any code for data access be provided in a separate repository following standard language-specific packaging guidelines, or if the code is small in scope it can be placed within the `src` folder of the hub's repository.
 
-In instances where a hub wants to store snapshots of the target data in the hub repository, the data should be placed within the `target-data` folder within the hub.
-
  - **Note: We still have not settled on any more detailed guidance about file formats or organization: csv, parquet, do we allow partitioning and if so how is that managed?**
 
-# More about the target observations format
+# More about the oracle output format
 
-Here, we describe the format of the target observations in more detail. We begin with an abstract overview before providing some specific examples.
+Here, we describe the format of the oracle output in more detail. We begin with an abstract overview before providing some specific examples.
 
-## Target observations format: the details
+## Oracle output format: the details
 
-Target observations follow a similar format as model outputs, but the `observation` column corresponds to the prediction that would be reported if the observed value of the target was known with certainty. The implications of this vary depending on the `output_type`:
+Oracle output follows a similar format as model outputs, but the `value` column is named `oracle_value`, and it contains the value of the prediction that would be reported if the observed value of the target was known with certainty. The implications of this vary depending on the `output_type`:
 
-- For the `mean`, `median`, `quantile`, and `sample` output types, the `observation` is the observed value of the prediction target. This `observation` is the same for all quantile levels and all sample indices, since a predictive distribution that places all of its probability on the observed outcome will have all quantiles equal to that value and all samples from that distribution will be equal to the observed value.
-- For the `pmf` output type, the `observation` is `1` when the `output_type_id` corresponds to the observed category (indicating a probability of 1 for that category) and `0` for other categories.
-- For the `cdf` output type, the `observation` is `0` for any `output_type_id` levels that are less than the observed value, and `1` for any `output_type_id` levels that are greater than or equal to the observed value, corresponding to the step function cdf of a probability distribution that places all of its probability at the observed value.
+- For the `mean`, `median`, `quantile`, and `sample` output types, the `oracle_value` is the observed value of the prediction target. This `oracle_value` is the same for all quantile levels and all sample indices, since a predictive distribution that places all of its probability on the observed outcome will have all quantiles equal to that value and all samples from that distribution will be equal to the observed value.
+- For the `pmf` output type, the `oracle_value` is `1` when the `output_type_id` corresponds to the observed category (indicating a probability of 1 for that category) and `0` for other categories.
+- For the `cdf` output type, the `oracle_value` is `0` for any `output_type_id` levels that are less than the observed value, and `1` for any `output_type_id` levels that are greater than or equal to the observed value, corresponding to the step function cdf of a probability distribution that places all of its probability at the observed value.
 
-An important difference between target observations and model outputs is that any information from the task id variables or `output_type` and `output_type_id` columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the target observations. Specifically,
+An important difference between oracle output and model output is that any information from the task id variables or `output_type` and `output_type_id` columns that is not needed to correctly align observations with the corresponding predictions can be omitted from the oracle output. Specifically,
 
-- The target observations should include enough of the task id variables and columns with metadata about the outputs (`output_type` and `output_type_id`) to uniquely identify which observations correspond to which predictions. For example, this will typically include task id variables such as `location` and `target_date` (or `target_end_date`), since the observed value will be specific to the `location` and `target_date`.
-- Any task id variables that are not necessary to match observations with predictions can be omitted from the target observations.  For example, if `target_date` is included then `reference_date` and `horizon` variables can be omitted because the same observation will generally correspond to a particular `target_date` regardless of the forecast horizon.  Similarly, in a scenario projection setting, the `scenario_id` can be omitted.
-- The `output_type` and `output_type_id` columns only need to be included if the hub collects pmf or cdf outputs. As was described above, for those two output types the `observation` depends on the `output_type_id`. On the other hand, the `observation` is not specific to the quantile level for quantile forecasts or the sample index for sample forecasts, and so for these output types (as well as mean and median), the `output_type_id` is not needed to align observations with predictions.
-    - If the hub collects quantile, sample, mean, or median outputs alongside pmf or cdf outputs, a combined target observations dataset may be created with all output types. In that case, the target observations should include an `output_type_id` column, but the value of that column will be ignored when merging target observations with predictions of output type quantile, sample, mean, or median. For those output types, the target observations data should only include one row with the observed value for the quantile or sample forecasts in each task id group, rather than one row for each quantile level or for each sample index. The `output_type_id` column in those rows may be set to a missing value as a representation of the fact that that value does not contain information about the quantile level or sample index specified as the `output_type_id` in the model outputs. The precise mechanism used to represent missing values differs depending on the tools being used. For example, in CSV files, an empty string (`""`) may be used, while in parquet files, a `null` is used.
+- The oracle output should include enough of the task id variables and columns with metadata about the outputs (`output_type` and `output_type_id`) to uniquely identify which `oracle_value`s correspond to which predicted `value`s. For example, this will typically include task id variables such as `location` and `target_date` (or `target_end_date`), since the `oracle_value` will be specific to the `location` and `target_date`.
+- Any task id variables that are not necessary to match observations with predictions can be omitted from the oracle output.  For example, if `target_date` is included then `reference_date` and `horizon` variables can be omitted because the same observation will generally correspond to a particular `target_date` regardless of the forecast horizon.  Similarly, in a scenario projection setting, the `scenario_id` can be omitted.
+- The `output_type` and `output_type_id` columns only need to be included if the hub collects pmf or cdf outputs. As was described above, for those two output types the `oracle_value` depends on the `output_type_id`. On the other hand, the `oracle_value` is not specific to the quantile level for quantile forecasts or the sample index for sample forecasts, and so for these output types (as well as mean and median), the `output_type_id` is not needed to align observations with predictions.
+    - If the hub collects quantile, sample, mean, or median outputs alongside pmf or cdf outputs, a combined oracle output dataset may be created with all output types. In that case, the oracle output should include an `output_type_id` column, but the value of that column will be ignored when merging the oracle output with predictions of output type quantile, sample, mean, or median. For those output types, the oracle output data should only include one row with the observed value for the quantile or sample forecasts in each task id group, rather than one row for each quantile level or for each sample index. The `output_type_id` column in those rows may be set to a missing value as a representation of the fact that that value does not contain information about the quantile level or sample index specified as the `output_type_id` in the model outputs. The precise mechanism used to represent missing values differs depending on the tools being used. For example, in CSV files, an empty string (`""`) may be used, while in parquet files, a `null` is used.
 
-## Target observations format: examples
+## Oracle output format: examples
 
 We will illustrate the above concepts using the example forecast data from `hubExamples` that was discussed briefly in the overview section; please see the [forecast_data vignette](https://hubverse-org.github.io/hubExamples/articles/forecast_data.html) in hubExamples for more detail about these data.
 
@@ -148,103 +165,141 @@ target_output_type_combos <- hubExamples::forecast_outputs |>
 kable(target_output_type_combos)
 ```
 
-Below, we show snippets of the contents of a `model_out_tbl` with example forecast submissions and the corresponding target observations for each `output_type`. We highlight two points about these objects:
+Below, we show snippets of the contents of a `model_out_tbl` with example forecast submissions and the corresponding oracle output for each `output_type`. We highlight two points about these objects:
 
-- The `reference_date` and `horizon` columns are included in the model outputs, but they are not included in the target observations.
-- In this example, the target observations for the `mean`, `median`, `quantile`, and `sample` output types are all the same, and they contain `NA` values for the `ouptut_type_id`.  In a hub without `pmf` or `cdf` output types, the `output_type` and `output_type_id` columns could be omitted and this duplication could be eliminated.
+- The `reference_date` and `horizon` columns are included in the model outputs, but they are not included in the oracle output.
+- In this example, the oracle output for the `mean`, `median`, `quantile`, and `sample` output types are all the same, and they contain `NA` values for the `output_type_id`.  In a hub without `pmf` or `cdf` output types, the `output_type` and `output_type_id` columns could be omitted and this duplication could be eliminated.
 
 ### Output type `mean`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "mean") |>
+  dplyr::filter(output_type == "mean",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "mean") |>
+  dplyr::filter(output_type == "mean",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
+  dplyr::arrange(location, target_end_date) |>
+  dplyr::rename(oracle_value = observation) |>
   head()
 ```
 
-For the `mean` output type, the `observation` is the numeric value of the prediction target. Here, the first row of the target observations indicates that 2380 flu hospitalizations were reported in the US for the week ending on 2022-10-22. This can be viewed as the mean of a "predictive distribution" that is entirely concentrated on that observed value. The use of `<NA>` for the `output_type_id` matches the convention for model output with the mean output type.
+For the `mean` output type, the `oracle_value` is the numeric value of the prediction target. Here, the first row of the oracle output indicates that 2380 flu hospitalizations were reported in the US for the week ending on 2022-10-22. This can be viewed as the mean of a "predictive distribution" that is entirely concentrated on that observed value. The use of `<NA>` for the `output_type_id` matches the convention for model output with the mean output type.
 
 ### Output type `median`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "median") |>
+  dplyr::filter(output_type == "median",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "median") |>
+  dplyr::filter(output_type == "median",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
-The `observation` for the `median` output type is the same as for the `mean` output type: the numeric value of the prediction target. This is the median of a distribution that is entirely concentrated on that observed value. Again, the use of `<NA>` for the `output_type_id` matches the convention for model output with the median output type.
+The `oracle_value` for the `median` output type is the same as for the `mean` output type: the numeric value of the prediction target. This is the median of a distribution that is entirely concentrated on that observed value. Again, the use of `<NA>` for the `output_type_id` matches the convention for model output with the median output type.
 
 ### Output type `quantile`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "quantile") |>
+  dplyr::filter(output_type == "quantile",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "quantile") |>
+  dplyr::filter(output_type == "quantile",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
-As with the `mean` and `median` output types, the `observation` for a quantile type is the observed numeric value of the prediction target, which is the quantile of a predictive distribution that assigns probablity 1 to that observed value at any quantile probability level. A model output file would need to have a separate row for each quantile level reported in the `output_type_id` column. As a space-saving convention, we use `output_type_id = <NA>` to indicate that this `observation` applies to all quantile levels.
+As with the `mean` and `median` output types, the `oracle_value` for a quantile type is the observed numeric value of the prediction target, which is the quantile of a predictive distribution that assigns probablity 1 to that observed value at any quantile probability level. A model output file would need to have a separate row for each quantile level reported in the `output_type_id` column. As a space-saving convention, we use `output_type_id = <NA>` to indicate that this `oracle_value` applies to all quantile levels.
 
 ### Output type `sample`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "sample") |>
+  dplyr::filter(output_type == "sample",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "sample") |>
+  dplyr::filter(output_type == "sample",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
-As with the above output types, the `observation` for a sample type is the observed numeric value of the prediction target since all samples from a predictive distribution that assigns probablity 1 to the observed value will be equal to that value. A model output file would need to have a separate row for each sample, with the sample index recorded in the `output_type_id` column. We use `output_type_id = <NA>` to indicate that this `observation` applies to all predictive samples.
+As with the above output types, the `oracle_value` for a sample type is the observed numeric value of the prediction target since all samples from a predictive distribution that assigns probablity 1 to the observed value will be equal to that value. A model output file would need to have a separate row for each sample, with the sample index recorded in the `output_type_id` column. We use `output_type_id = <NA>` to indicate that this `oracle_value` applies to all predictive samples.
 
 ### Output type `pmf`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "pmf") |>
+  dplyr::filter(output_type == "pmf",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "pmf") |>
+  dplyr::filter(output_type == "pmf",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
-The presence of a `1` for the `observation` in the first row and `0` in the subsequent three rows indicates that the observed rate category in the US on the week of 2022-10-22 was `"low"`. Similarly, the observed rate category in Alabama (FIPS code "01") in that week was `"moderate"`.
+The presence of a `1` for the `oracle_value` in the first row and `0` in the subsequent three rows indicates that the observed rate category in the US on the week of 2022-10-22 was `"low"`. Similarly, the observed rate category in Alabama (FIPS code "01") in that week was `"moderate"`.
 
 ### Output type `cdf`
 
 ```{r}
 hubExamples::forecast_outputs |>
-  dplyr::filter(output_type == "cdf") |>
+  dplyr::filter(output_type == "cdf",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
 ```{r}
 hubExamples::forecast_target_observations |>
-  dplyr::filter(output_type == "cdf") |>
+  dplyr::filter(output_type == "cdf",
+                location == "25",
+                target_end_date >= "2022-11-19",
+                target_end_date <= "2023-01-07") |>
   head()
 ```
 
-The presence of a `0` for the `observation` in the first two rows and a `1` for the `observation` in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75. These `observation`s encode a step function CDF that is equal to 0 when the `output_type_id` is less than the observed rate and jumps to 1 at the observed rate.
+The presence of a `0` for the `oracle_value` in the first two rows and a `1` for the `oracle_value` in subsequent rows indicates that the observed hospitalization rate in the US in the week of 2022-10-22 was greater than 0.5 but less than or equal to 0.75. These `oracle_value`s encode a step function CDF that is equal to 0 when the `output_type_id` is less than the observed rate and jumps to 1 at the observed rate.
