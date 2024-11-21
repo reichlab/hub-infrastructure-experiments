@@ -1,0 +1,632 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "round-1": {
+      "type": "object",
+      "properties": {
+        "model_tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "task_ids": {
+                "type": "object",
+                "properties": {
+                  "origin_date": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "2022-09-03"
+                          ]
+                        },
+                        "additionalItems": true
+                      },
+                      "optional": {
+                        "type": "null"
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "scenario_id": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "enum": [
+                            1
+                          ]
+                        },
+                        "additionalItems": true
+                      },
+                      "optional": {
+                        "type": "null"
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "object",
+                        "properties": {
+                          "$ref": {
+                            "type": "string",
+                            "enum": [
+                              "#/$defs/task_ids/location/us_states"
+                            ]
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "$ref"
+                        ]
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "US"
+                          ]
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "target": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "horizon": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "origin_date",
+                  "scenario_id",
+                  "location",
+                  "target",
+                  "horizon"
+                ]
+              },
+              "output_types": {
+                "type": "object",
+                "properties": {
+                  "mean": {
+                    "type": "object",
+                    "properties": {
+                      "type_id": {
+                        "type": "object",
+                        "properties": {
+                          "required": {
+                            "type": "null"
+                          },
+                          "optional": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "additionalItems": true
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "required",
+                          "optional"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "minimum": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "type",
+                          "minimum"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "type_id",
+                      "value"
+                    ]
+                  },
+                  "quantile": {
+                    "type": "object",
+                    "properties": {
+                      "type_id": {
+                        "type": "object",
+                        "properties": {
+                          "required": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "additionalItems": true
+                          },
+                          "optional": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "additionalItems": true
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "required",
+                          "optional"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "minimum": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "type",
+                          "minimum"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "type_id",
+                      "value"
+                    ]
+                  },
+                  "cdf": {
+                    "type": "object",
+                    "properties": {
+                      "type_id": {
+                        "type": "object",
+                        "properties": {
+                          "required": {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "number",
+                                "string"
+                              ]
+                            },
+                            "additionalItems": true
+                          },
+                          "optional": {
+                            "type": "null"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "required",
+                          "optional"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "numeric"
+                            ]
+                          },
+                          "minimum": {
+                            "type": [
+                              "number",
+                              "integer"
+                            ]
+                          },
+                          "maximum": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "type",
+                          "minimum"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "type_id",
+                      "value"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "cdf"
+                ]
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "task_ids",
+              "output_types"
+            ]
+          },
+          "additionalItems": true
+        },
+        "submissions_due": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string"
+            },
+            "end": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "start",
+            "end"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "model_tasks",
+        "submissions_due"
+      ]
+    },
+    "round-2": {
+      "type": "object",
+      "properties": {
+        "model_tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "task_ids": {
+                "type": "object",
+                "properties": {
+                  "origin_date": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "additionalItems": true
+                      },
+                      "optional": {
+                        "type": "null"
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "scenario_id": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "object",
+                        "properties": {
+                          "$ref": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "$ref"
+                        ]
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "target": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "age_group": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  },
+                  "horizon": {
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "null"
+                      },
+                      "optional": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "additionalItems": true
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "required",
+                      "optional"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "origin_date",
+                  "scenario_id",
+                  "location",
+                  "target",
+                  "age_group",
+                  "horizon"
+                ]
+              },
+              "output_types": {
+                "type": "object",
+                "properties": {
+                  "quantile": {
+                    "type": "object",
+                    "properties": {
+                      "type_id": {
+                        "type": "object",
+                        "properties": {
+                          "required": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "additionalItems": true
+                          },
+                          "optional": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "additionalItems": true
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "required",
+                          "optional"
+                        ]
+                      },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "minimum": {
+                            "type": "integer"
+                          }
+                        },
+                        "additionalProperties": true,
+                        "required": [
+                          "type",
+                          "minimum"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true,
+                    "required": [
+                      "type_id",
+                      "value"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "quantile"
+                ]
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "task_ids",
+              "output_types"
+            ]
+          },
+          "additionalItems": true
+        },
+        "submissions_due": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string"
+            },
+            "end": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "start",
+            "end"
+          ]
+        },
+        "last_data_date": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "model_tasks",
+        "submissions_due",
+        "last_data_date"
+      ]
+    },
+    "$defs": {
+      "type": "object",
+      "properties": {
+        "task_ids": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "object",
+              "properties": {
+                "us_states": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "additionalItems": true
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "us_states"
+              ]
+            }
+          },
+          "additionalProperties": true,
+          "required": [
+            "location"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "task_ids"
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "round-1",
+    "round-2",
+    "$defs"
+  ]
+}
